@@ -1,0 +1,72 @@
+name: AgentProof
+description: Verify code changes before merge.
+author: AgentProof
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  base:
+    description: Base git ref to compare against
+    required: false
+    default: origin/main
+  fail-on:
+    description: Minimum severity that blocks the job (low|medium|high|critical|none)
+    required: false
+    default: high
+  config:
+    description: Optional path to agentproof config
+    required: false
+    default: ''
+  working-directory:
+    description: Repository subdirectory to analyze
+    required: false
+    default: '.'
+  skip-checks:
+    description: Skip typecheck/lint/test/build and run rules only
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install AgentProof from action package
+      shell: bash
+      run: |
+        cd "${{ github.action_path }}"
+        npm install --omit=dev
+        npm run build
+        npm install -g .
+
+    - name: Resolve config
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        if [ -n "${{ inputs.config }}" ]; then
+          echo "CONFIG_FILE=${{ inputs.config }}" >> "$GITHUB_ENV"
+        else
+          printf '%s\n' \
+            "fail_on: ${{ inputs.fail-on }}" \
+            "require:" \
+            "  typecheck: true" \
+            "security:" \
+            "  secret_detection: true" \
+            "  auth_regression: true" \
+            > /tmp/agentproof.ci.yaml
+          echo "CONFIG_FILE=/tmp/agentproof.ci.yaml" >> "$GITHUB_ENV"
+        fi
+
+    - name: Run AgentProof
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        SKIP=""
+        if [ "${{ inputs.skip-checks }}" = "true" ]; then
+          SKIP="--skip-checks"
+        fi
+        agentproof --base "${{ inputs.base }}" --ci --config "$CONFIG_FILE" $SKIP

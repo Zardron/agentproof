@@ -1,0 +1,22 @@
+fail_on: high
+
+protected_areas:
+  - "src/auth/**"
+  - "src/payments/**"
+  - "prisma/migrations/**"
+
+require:
+  build: false
+  tests: false
+  typecheck: true
+  lint: false
+
+dependencies:
+  new_dependency: warn
+
+security:
+  secret_detection: true
+  auth_regression: true
+
+ignore_rules: []
+severity_overrides: {}
