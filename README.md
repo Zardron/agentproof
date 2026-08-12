@@ -95,19 +95,31 @@ While AgentProof runs, the terminal shows the current stage so it does not look 
 AgentProof 0.x.x
 ────────────────────────────
 
-✓ Detected nextjs + react + TypeScript + npm
-✓ Compared current branch against main
-  24 changed files
-✓ Typecheck passed (3.2s)
-✗ Lint failed (1.8s)
-· Tests not configured
-✓ Build passed (12.4s)
-✓ Dependencies passed
-✓ Security analysis complete
-✓ Risk analysis complete
+✓ Project detected: Next.js + TypeScript + npm
+✓ Git changes detected: 24 files
+
+⠋ Running typecheck...
+✓ Typecheck passed (3.1s)
+
+⠋ Running lint...
+✓ Lint passed (1.8s)
+
+- Tests not configured
+
+⠋ Running build...
+✓ Build passed (11.4s)
+
+⠋ Analyzing dependencies...
+✓ Dependency analysis complete
+
+⠋ Running security checks...
+✓ Security checks complete (0.4s)
+
+⠋ Calculating production readiness...
+✓ Production readiness calculated (12ms)
 ```
 
-Then the full report is printed. In CI or non-TTY terminals, the same stages are logged as stable `[AgentProof]` lines. `--json` and `--sarif` keep stdout machine-readable; progress goes to stderr.
+Then the full report is printed. In CI or non-TTY terminals, the same stages are logged as stable `[AgentProof]` lines. `--json` and `--sarif` keep stdout machine-readable; progress goes to stderr. Detect, diff, security, and readiness also report elapsed time when available.
 
 ---
 
