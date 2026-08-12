@@ -1,4 +1,5 @@
 import type { Finding, ReportModel, Severity } from '../core/types.js'
+import { getVersion } from '../core/version.js'
 
 function sarifLevel(severity: Severity): 'error' | 'warning' | 'note' {
   if (severity === 'critical' || severity === 'high') return 'error'
@@ -22,7 +23,7 @@ export function formatSarif(report: ReportModel): string {
           driver: {
             name: 'AgentProof',
             informationUri: 'https://github.com/agentproof/agentproof',
-            version: '0.1.0',
+            version: getVersion(),
             rules: [...rules.values()].map((f) => ({
               id: f.ruleId,
               name: f.title,

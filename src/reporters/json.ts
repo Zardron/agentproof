@@ -1,14 +1,19 @@
 import type { ReportModel } from '../core/types.js'
+import { getVersion } from '../core/version.js'
 
 export function formatJson(report: ReportModel): string {
   return JSON.stringify(
     {
       tool: 'agentproof',
-      version: '0.1.0',
+      version: getVersion(),
       detected: {
         frameworks: report.project.frameworks,
         language: report.project.language,
         packageManager: report.project.packageManager,
+        tests: report.project.test.runner,
+        linter: report.project.lint.tool,
+        orm: report.project.orm,
+        monorepo: report.project.monorepo.kind,
       },
       changeRisk: report.changeRisk,
       productionReadiness: report.readiness,

@@ -18,6 +18,14 @@ export function parseArgs(argv: string[]): CliOptions {
     else if (a === '--sarif') opts.sarif = true
     else if (a === '--ci') opts.ci = true
     else if (a === '--skip-checks') opts.skipChecks = true
+    else if (a === '--html') {
+      const next = argv[i + 1]
+      if (next && !next.startsWith('-')) {
+        opts.html = argv[++i]
+      } else {
+        opts.html = 'agentproof-report.html'
+      }
+    }
     else if (a === '--base') {
       opts.base = argv[++i]
     } else if (a === '--config') {
