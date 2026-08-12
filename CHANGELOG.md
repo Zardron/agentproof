@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `agentproof baseline` records accepted findings to `.agentproof-baseline.json`
+- Subsequent runs report existing / new / resolved findings and can gate merge status on new issues only
+
 ## 0.4.1
 
 ### Added

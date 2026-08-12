@@ -17,6 +17,8 @@ import { emitGithubAnnotations } from '../reporters/github-annotations.js'
 import { exitCodeForMergeStatus } from './exit-codes.js'
 import { fetchAdvisoryFindings } from '../checks/advisories.js'
 import { dependencyFindingInputs } from '../checks/dependencies.js'
+import { compareToBaseline, findingsForMergeDecision } from '../baseline/compare.js'
+import { readBaselineFile, resolveBaselinePath } from '../baseline/store.js'
 import {
   STAGE_FAILURE_LABEL,
   diffCompletedMessage,
@@ -115,6 +117,22 @@ export async function runPipeline(options: CliOptions): Promise<{
       message: 'Security analysis complete',
     })
 
+    let baselineReport: ReportModel['baseline']
+    if (options.applyBaseline !== false) {
+      const baselinePath = resolveBaselinePath(options.cwd, policy.baseline.path)
+      const loaded = readBaselineFile(baselinePath)
+      if (loaded) {
+        const compared = compareToBaseline(findings, loaded, baselinePath)
+        findings = compared.findings
+        baselineReport = {
+          path: path.relative(options.cwd, baselinePath).replace(/\\/g, '/') || policy.baseline.path,
+          existing: compared.comparison.existing,
+          new: compared.comparison.new,
+          resolved: compared.comparison.resolved,
+        }
+      }
+    }
+
     emitProgress(onProgress, {
       stage: 'risk',
       status: 'running',
@@ -123,8 +141,12 @@ export async function runPipeline(options: CliOptions): Promise<{
     const domains = diff.files.flatMap((f) => f.riskDomains)
     const changeRisk = computeChangeRisk(domains, findings)
     const readiness = computeReadiness(checks, findings)
+    const mergeFindings =
+      baselineReport && policy.baseline.new_issues_only
+        ? findingsForMergeDecision(findings)
+        : findings
     const { status: mergeStatus, blockedReasons } = evaluateMergeStatus(
-      findings,
+      mergeFindings,
       checks,
       policy,
     )
@@ -143,6 +165,7 @@ export async function runPipeline(options: CliOptions): Promise<{
       readiness,
       mergeStatus,
       blockedReasons,
+      baseline: baselineReport,
     }
 
     if (options.html) {
