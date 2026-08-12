@@ -12,6 +12,6 @@ describe('public API', () => {
     expect(typeof getVersion).toBe('function')
     expect(typeof loadPolicy).toBe('function')
     expect(typeof describeProject).toBe('function')
-    expect(getVersion()).toBe('0.4.0')
+    expect(getVersion()).toBe('0.4.1')
   })
 })
