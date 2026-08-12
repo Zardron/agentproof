@@ -78,6 +78,39 @@ export function formatTerminal(report: ReportModel): string {
 
   lines.push('')
 
+  const impact = report.testImpact
+  lines.push('Test Impact Analysis')
+  lines.push('────────────────────────────────')
+  lines.push('')
+  lines.push(`Changed source files              ${impact.changedSourceFiles.length}`)
+  lines.push(`Potentially affected modules     ${impact.affectedModules.length}`)
+  lines.push(`Related tests detected            ${impact.relatedTests.length}`)
+  lines.push(`Risky modules without tests       ${impact.untested.filter((row) => row.critical).length}`)
+  lines.push('')
+  for (const link of impact.relatedTests) {
+    lines.push(`${chalk.green('✓')} ${link.source}`)
+    for (const test of link.tests) {
+      lines.push(`  ↳ ${test}`)
+    }
+  }
+  for (const row of impact.untested) {
+    lines.push(`${chalk.yellow('⚠')} ${row.source}`)
+    lines.push(
+      row.critical
+        ? '  Critical area without related tests'
+        : '  No related tests detected',
+    )
+  }
+  if (impact.changedSourceFiles.length > 0) {
+    lines.push('')
+    lines.push(
+      chalk.gray(
+        'Related tests are linked by relative imports or matching test filenames. Package imports are not guessed.',
+      ),
+    )
+  }
+  lines.push('')
+
   const byRule = new Map<string, Finding[]>()
   for (const f of report.findings) {
     const list = byRule.get(f.ruleId) ?? []

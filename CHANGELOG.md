@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Deterministic test impact analysis (import graph + test naming) in the report
+- `--affected-tests` prints related test paths, one per line, for scripts
+
+### Fixed
+
+- Test impact walks transitive dependents so tests of importers are included
+- `--affected-tests` skips the full check/security pipeline and only lists related tests
+
 ## 0.4.1
 
 ### Added

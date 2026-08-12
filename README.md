@@ -115,6 +115,7 @@ Then the full report is printed. In CI or non-TTY terminals, the same stages are
 
 | What you want to do | Command |
 |---------------------|---------|
+| List tests related to the current diff | `npx agentproof --base main --affected-tests` |
 | Compare current branch against main | `npx agentproof --base main` |
 | Check staged changes before committing | `npx agentproof --staged` |
 | Check uncommitted work vs `HEAD` (default) | `npx agentproof` |
@@ -208,6 +209,26 @@ Full rule catalog: [RULES.md](./RULES.md).
 6. Score change risk and production readiness
 7. Emit `PASS` / `REVIEW` / `BLOCKED`
 
+### Test impact
+
+AgentProof also reports whether changed source files have **related tests**, using only deterministic signals:
+
+- relative `import` / `require` / `export from` edges (including transitive dependents of a changed file)
+- existing files that match naming conventions (`foo.ts` → `foo.test.ts`, `tests/foo.test.ts`)
+
+It does **not** guess from npm package names or English similarity. `--affected-tests` prints the related test paths, one per line, for scripts — and skips typecheck/lint/tests/build/security so it stays fast:
+
+```bash
+npx agentproof --base main --affected-tests
+```
+
+```text
+tests/pricing.test.ts
+tests/checkout.test.ts
+```
+
+`--json` / `--sarif` still win for stdout when combined with `--affected-tests`.
+
 ---
 
 ## Example
@@ -286,6 +307,7 @@ npx agentproof --help
 | `--config <path>` | Use a specific policy config file | `npx agentproof --config agentproof.config.yaml` |
 | `--cwd <path>` | Run against a different working directory | `npx agentproof --cwd ./packages/api --base main` |
 | `--skip-checks` | Skip typecheck/lint/test/build/dependency checks; run rules (and advisories) only | `npx agentproof --base main --skip-checks` |
+| `--affected-tests` | Print related test paths to stdout (one per line) | `npx agentproof --base main --affected-tests` |
 | `--verbose` | Show resolved check commands and extra progress detail | `npx agentproof --base main --verbose` |
 | `--version` | Print CLI version | `npx agentproof --version` |
 
