@@ -31,7 +31,10 @@ function icon(status: ProgressStatus): string {
 
 export function formatInteractiveDone(event: ProgressEvent): string {
   const duration =
-    event.status === 'passed' || event.status === 'failed' || event.status === 'warning'
+    event.status === 'passed' ||
+    event.status === 'failed' ||
+    event.status === 'warning' ||
+    event.status === 'completed'
       ? formatDuration(event.durationMs)
       : ''
   const lines = [`${icon(event.status)} ${event.message}${duration}`]
@@ -42,7 +45,10 @@ export function formatInteractiveDone(event: ProgressEvent): string {
 export function formatCiLine(event: ProgressEvent): string {
   const duration =
     event.status !== 'running' &&
-    (event.status === 'passed' || event.status === 'failed' || event.status === 'warning')
+    (event.status === 'passed' ||
+      event.status === 'failed' ||
+      event.status === 'warning' ||
+      event.status === 'completed')
       ? formatDuration(event.durationMs)
       : ''
   const lines = [`[AgentProof] ${event.message}${duration}`]

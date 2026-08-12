@@ -8,6 +8,7 @@
 - Default progress hides fast config/report stages unless `--verbose`; failures still surface
 - Skipped checks use `-` in the live progress stream
 - Ctrl+C restores the cursor after an in-flight spinner
+- Elapsed time is shown for detect, diff, security, and readiness stages (not only typecheck/lint/tests/build)
 
 ## 0.4.1
 

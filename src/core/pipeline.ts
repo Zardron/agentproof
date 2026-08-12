@@ -59,11 +59,13 @@ export async function runPipeline(options: CliOptions): Promise<{
       status: 'running',
       message: 'Detecting project...',
     })
+    const detectStarted = Date.now()
     const project = detectProject(options.cwd)
     emitProgress(onProgress, {
       stage: 'detect',
       status: 'completed',
       message: projectDetectedMessage(project),
+      durationMs: Date.now() - detectStarted,
     })
 
     emitProgress(onProgress, {
@@ -71,6 +73,7 @@ export async function runPipeline(options: CliOptions): Promise<{
       status: 'running',
       message: diffRunningMessage(options),
     })
+    const diffStarted = Date.now()
     const diff = await computeDiff({
       cwd: options.cwd,
       base: options.base,
@@ -81,6 +84,7 @@ export async function runPipeline(options: CliOptions): Promise<{
       stage: 'diff',
       status: 'completed',
       message: gitChangesDetectedMessage(diff.files.length),
+      durationMs: Date.now() - diffStarted,
     })
 
     const checks = await runChecks({
@@ -97,6 +101,7 @@ export async function runPipeline(options: CliOptions): Promise<{
       status: 'running',
       message: 'Running security checks...',
     })
+    const securityStarted = Date.now()
     let findings = await runRules({ project, policy, diff })
     const depInfo = dependencyFindingInputs(project, diff)
     const advisoryPkgs = [
@@ -111,6 +116,7 @@ export async function runPipeline(options: CliOptions): Promise<{
       stage: 'security',
       status: 'completed',
       message: 'Security checks complete',
+      durationMs: Date.now() - securityStarted,
     })
 
     emitProgress(onProgress, {
@@ -118,6 +124,7 @@ export async function runPipeline(options: CliOptions): Promise<{
       status: 'running',
       message: 'Calculating production readiness...',
     })
+    const riskStarted = Date.now()
     const domains = diff.files.flatMap((f) => f.riskDomains)
     const changeRisk = computeChangeRisk(domains, findings)
     const readiness = computeReadiness(checks, findings)
@@ -130,6 +137,7 @@ export async function runPipeline(options: CliOptions): Promise<{
       stage: 'risk',
       status: 'completed',
       message: 'Production readiness calculated',
+      durationMs: Date.now() - riskStarted,
     })
 
     const report: ReportModel = {

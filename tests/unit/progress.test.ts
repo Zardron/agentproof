@@ -205,10 +205,26 @@ describe('progress renderer', () => {
     expect(formatInteractiveDone(failed)).toContain('Lint failed')
     expect(formatInteractiveDone(skipped)).toContain('Tests not configured')
     expect(formatInteractiveDone(skipped)).toContain('-')
+    expect(
+      formatInteractiveDone({
+        stage: 'security',
+        status: 'completed',
+        message: 'Security checks complete',
+        durationMs: 450,
+      }),
+    ).toContain('Security checks complete (450ms)')
     expect(formatCiLine({ stage: 'detect', status: 'running', message: 'Detecting project...' })).toBe(
       '[AgentProof] Detecting project...',
     )
     expect(formatCiLine(passed)).toBe('[AgentProof] Typecheck passed (3.2s)')
+    expect(
+      formatCiLine({
+        stage: 'detect',
+        status: 'completed',
+        message: 'Project detected: Node.js + TypeScript + npm',
+        durationMs: 12,
+      }),
+    ).toBe('[AgentProof] Project detected: Node.js + TypeScript + npm (12ms)')
   })
 
   it('writes CI progress without spinner frames and stop() is idempotent', () => {
@@ -341,6 +357,21 @@ describe('pipeline progress events', () => {
     expect(events.some((e) => e.stage === 'security' && e.status === 'completed')).toBe(true)
     expect(events.some((e) => e.stage === 'risk' && e.status === 'completed')).toBe(true)
     expect(events.some((e) => e.stage === 'report' && e.status === 'completed')).toBe(true)
+    expect(
+      events.some(
+        (e) => e.stage === 'detect' && e.status === 'completed' && typeof e.durationMs === 'number',
+      ),
+    ).toBe(true)
+    expect(
+      events.some(
+        (e) => e.stage === 'security' && e.status === 'completed' && typeof e.durationMs === 'number',
+      ),
+    ).toBe(true)
+    expect(
+      events.some(
+        (e) => e.stage === 'risk' && e.status === 'completed' && typeof e.durationMs === 'number',
+      ),
+    ).toBe(true)
     expect(events.some((e) => e.message.startsWith('Project detected:'))).toBe(true)
     expect(events.some((e) => e.message.startsWith('Git changes detected:'))).toBe(true)
     expect(events.some((e) => e.message === 'Security checks complete')).toBe(true)

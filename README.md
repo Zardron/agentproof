@@ -113,13 +113,13 @@ AgentProof 0.x.x
 ✓ Dependency analysis complete
 
 ⠋ Running security checks...
-✓ Security checks complete
+✓ Security checks complete (0.4s)
 
 ⠋ Calculating production readiness...
-✓ Production readiness calculated
+✓ Production readiness calculated (12ms)
 ```
 
-Then the full report is printed. In CI or non-TTY terminals, the same stages are logged as stable `[AgentProof]` lines. `--json` and `--sarif` keep stdout machine-readable; progress goes to stderr.
+Then the full report is printed. In CI or non-TTY terminals, the same stages are logged as stable `[AgentProof]` lines. `--json` and `--sarif` keep stdout machine-readable; progress goes to stderr. Detect, diff, security, and readiness also report elapsed time when available.
 
 ---
 
