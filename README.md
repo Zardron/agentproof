@@ -115,6 +115,8 @@ Then the full report is printed. In CI or non-TTY terminals, the same stages are
 
 | What you want to do | Command |
 |---------------------|---------|
+| Skip the incremental check cache | `npx agentproof --base main --no-cache` |
+| Clear the local check cache | `npx agentproof cache clear` |
 | Compare current branch against main | `npx agentproof --base main` |
 | Check staged changes before committing | `npx agentproof --staged` |
 | Check uncommitted work vs `HEAD` (default) | `npx agentproof` |
@@ -286,12 +288,25 @@ npx agentproof --help
 | `--config <path>` | Use a specific policy config file | `npx agentproof --config agentproof.config.yaml` |
 | `--cwd <path>` | Run against a different working directory | `npx agentproof --cwd ./packages/api --base main` |
 | `--skip-checks` | Skip typecheck/lint/test/build/dependency checks; run rules (and advisories) only | `npx agentproof --base main --skip-checks` |
+| `--no-cache` | Disable the incremental typecheck/lint/test/build cache | `npx agentproof --base main --no-cache` |
+| `cache clear` | Delete `.agentproof-cache` | `npx agentproof cache clear` |
 | `--verbose` | Show resolved check commands and extra progress detail | `npx agentproof --base main --verbose` |
 | `--version` | Print CLI version | `npx agentproof --version` |
 
 Default with no flags: analyze staged + unstaged changes vs `HEAD`. If the working tree is clean, AgentProof falls back to the last commit (`HEAD~1..HEAD`).
 
 If both `--staged` and `--base` are passed, **`--staged` wins**. If both `--json` and `--sarif` are passed, **SARIF is printed** (JSON is not). `--html` always writes a file and does not replace stdout.
+
+### Incremental check cache
+
+Typecheck, lint, tests, and build results can be reused when their inputs have not changed. Cache keys include Node.js version, the resolved command, lockfile/package/tsconfig/linter/test/AgentProof config files, and the Git worktree (or a source-file hash when Git is unavailable).
+
+Failed checks are never cached. A cached PASS is never returned after a relevant input change. The cache lives in `.agentproof-cache/` (gitignored, local only).
+
+```bash
+npx agentproof --base main --no-cache
+npx agentproof cache clear
+```
 
 ---
 

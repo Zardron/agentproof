@@ -15,6 +15,8 @@ import {
   resolveWorkspaceTypecheck,
 } from '../detect/workspace-project.js'
 import { emitProgress, eventFromCheck } from '../core/progress.js'
+import { collectWorkspaceFingerprint } from '../cache/fingerprint.js'
+import { readCachedCheck, writeCachedCheck } from '../cache/store.js'
 
 async function runCommand(
   id: string,
@@ -159,6 +161,11 @@ function aggregateDuration(results: CheckResult[]): number | undefined {
   return times.reduce((a, b) => a + b, 0)
 }
 
+function joinedCommands(commands: Array<string | null>): string | null {
+  const present = commands.filter((command): command is string => Boolean(command))
+  return present.length > 0 ? present.join(' && ') : null
+}
+
 export async function runChecks(options: {
   project: ProjectModel
   policy: Policy
@@ -166,9 +173,54 @@ export async function runChecks(options: {
   skipChecks: boolean
   verbose?: boolean
   onProgress?: ProgressCallback
+  noCache?: boolean
 }): Promise<CheckResult[]> {
-  const { project, policy, diff, skipChecks, verbose, onProgress } = options
+  const { project, policy, diff, skipChecks, verbose, onProgress, noCache } = options
   if (skipChecks) return emitSkippedChecks(onProgress)
+
+  const workspaceFingerprint = noCache ? '' : collectWorkspaceFingerprint(project.root)
+
+  const runCached = async (
+    stage: ProgressStage,
+    title: string,
+    command: string | null,
+    running: string,
+    fn: () => Promise<CheckResult>,
+    emitRunning = true,
+  ): Promise<CheckResult> => {
+    if (!noCache) {
+      const hit = readCachedCheck({
+        cwd: project.root,
+        checkId: stage,
+        command,
+        workspaceFingerprint,
+      })
+      if (hit) {
+        emitProgress(onProgress, eventFromCheck(stage, title, hit))
+        return hit
+      }
+    }
+    return withCheckProgress(
+      onProgress,
+      stage,
+      title,
+      running,
+      async () => {
+        const result = await fn()
+        if (!noCache) {
+          writeCachedCheck({
+            cwd: project.root,
+            checkId: stage,
+            command,
+            workspaceFingerprint,
+            result,
+          })
+        }
+        return result
+      },
+      emitRunning,
+    )
+  }
 
   const packages = listWorkspacePackages(project.root)
   const affected = affectedPackages(diff, packages)
@@ -176,152 +228,163 @@ export async function runChecks(options: {
     project.monorepo.kind !== 'none' && affected.length > 0 ? affected : null
 
   if (targets) {
-    emitProgress(onProgress, {
-      stage: 'typecheck',
-      status: 'running',
-      message: runningMessage('Typecheck', null, verbose),
-    })
-    const typeResults: CheckResult[] = []
-    for (const pkg of targets) {
-      const typeCmd = resolveWorkspaceTypecheck(project, pkg)
-      typeResults.push(
-        await runCommand(
-          `typecheck:${pkg.name}`,
-          `Typecheck (${pkg.name})`,
-          typeCmd,
-          project.root,
-          Boolean(typeCmd) && policy.require.typecheck,
-        ),
-      )
-    }
-    const typeStatus = aggregateStatus(typeResults)
-    const typecheck: CheckResult = {
-      id: 'typecheck',
-      title: 'Typecheck',
-      status: typeStatus,
-      summary: `${typeResults.filter((r) => r.status === 'passed').length}/${targets.length} packages`,
-      details: typeResults
-        .filter((r) => r.status === 'failed')
-        .map((r) => `${r.title}: ${r.summary}`)
-        .join('\n') || undefined,
-      durationMs: aggregateDuration(typeResults),
-    }
-    emitProgress(onProgress, eventFromCheck('typecheck', 'Typecheck', typecheck))
+    const typecheck = await runCached(
+      'typecheck',
+      'Typecheck',
+      joinedCommands(targets.map((pkg) => resolveWorkspaceTypecheck(project, pkg))),
+      runningMessage('Typecheck', null, verbose),
+      async () => {
+        const typeResults: CheckResult[] = []
+        for (const pkg of targets) {
+          const typeCmd = resolveWorkspaceTypecheck(project, pkg)
+          typeResults.push(
+            await runCommand(
+              `typecheck:${pkg.name}`,
+              `Typecheck (${pkg.name})`,
+              typeCmd,
+              project.root,
+              Boolean(typeCmd) && policy.require.typecheck,
+            ),
+          )
+        }
+        return {
+          id: 'typecheck',
+          title: 'Typecheck',
+          status: aggregateStatus(typeResults),
+          summary: `${typeResults.filter((r) => r.status === 'passed').length}/${targets.length} packages`,
+          details:
+            typeResults
+              .filter((r) => r.status === 'failed')
+              .map((r) => `${r.title}: ${r.summary}`)
+              .join('\n') || undefined,
+          durationMs: aggregateDuration(typeResults),
+        }
+      },
+    )
 
-    emitProgress(onProgress, {
-      stage: 'lint',
-      status: 'running',
-      message: runningMessage('Lint', resolveLintCommand(project), verbose),
-    })
-    const lintResults: CheckResult[] = []
-    for (const pkg of targets) {
-      const lintCmd = resolveWorkspaceScript(project, pkg, 'lint')
-      lintResults.push(
-        await runLintCheck({
-          command: lintCmd,
-          cwd: project.root,
-          required: Boolean(lintCmd) && policy.require.lint,
-          diff,
-          newIssuesOnly: policy.lint.new_issues_only,
-          runCommand,
-        }),
-      )
-    }
-    if (lintResults.every((r) => r.status === 'skipped') && resolveLintCommand(project)) {
-      lintResults.length = 0
-      lintResults.push(
-        await runLintCheck({
-          command: resolveLintCommand(project),
-          cwd: project.root,
-          required: policy.require.lint,
-          diff,
-          newIssuesOnly: policy.lint.new_issues_only,
-          runCommand,
-        }),
-      )
-    }
-    const lintStatus = aggregateStatus(lintResults)
-    const lint: CheckResult = {
-      id: 'lint',
-      title: 'Lint',
-      status: lintStatus,
-      summary:
-        lintResults.length === 1 && lintResults[0]?.id === 'lint'
-          ? lintResults[0].summary
-          : `${lintResults.filter((r) => r.status === 'passed').length}/${lintResults.length} packages`,
-      details: lintResults
-        .filter((r) => r.status === 'failed')
-        .map((r) => `${r.title}: ${r.summary}`)
-        .join('\n') || undefined,
-      durationMs: aggregateDuration(lintResults),
-    }
-    emitProgress(onProgress, eventFromCheck('lint', 'Lint', lint))
+    const lint = await runCached(
+      'lint',
+      'Lint',
+      joinedCommands([
+        ...targets.map((pkg) => resolveWorkspaceScript(project, pkg, 'lint')),
+        resolveLintCommand(project),
+      ]),
+      runningMessage('Lint', resolveLintCommand(project), verbose),
+      async () => {
+        const lintResults: CheckResult[] = []
+        for (const pkg of targets) {
+          const lintCmd = resolveWorkspaceScript(project, pkg, 'lint')
+          lintResults.push(
+            await runLintCheck({
+              command: lintCmd,
+              cwd: project.root,
+              required: Boolean(lintCmd) && policy.require.lint,
+              diff,
+              newIssuesOnly: policy.lint.new_issues_only,
+              runCommand,
+            }),
+          )
+        }
+        if (lintResults.every((r) => r.status === 'skipped') && resolveLintCommand(project)) {
+          lintResults.length = 0
+          lintResults.push(
+            await runLintCheck({
+              command: resolveLintCommand(project),
+              cwd: project.root,
+              required: policy.require.lint,
+              diff,
+              newIssuesOnly: policy.lint.new_issues_only,
+              runCommand,
+            }),
+          )
+        }
+        return {
+          id: 'lint',
+          title: 'Lint',
+          status: aggregateStatus(lintResults),
+          summary:
+            lintResults.length === 1 && lintResults[0]?.id === 'lint'
+              ? lintResults[0].summary
+              : `${lintResults.filter((r) => r.status === 'passed').length}/${lintResults.length} packages`,
+          details:
+            lintResults
+              .filter((r) => r.status === 'failed')
+              .map((r) => `${r.title}: ${r.summary}`)
+              .join('\n') || undefined,
+          durationMs: aggregateDuration(lintResults),
+        }
+      },
+    )
 
-    emitProgress(onProgress, {
-      stage: 'tests',
-      status: 'running',
-      message: runningMessage('Tests', null, verbose),
-    })
-    const testResults: CheckResult[] = []
-    for (const pkg of targets) {
-      const testCmd = resolveWorkspaceScript(project, pkg, 'test')
-      testResults.push(
-        await runCommand(
-          `tests:${pkg.name}`,
-          `Tests (${pkg.name})`,
-          testCmd,
-          project.root,
-          Boolean(testCmd) && policy.require.tests,
-          180_000,
-        ),
-      )
-    }
-    const testStatus = aggregateStatus(testResults)
-    const tests: CheckResult = {
-      id: 'tests',
-      title: 'Tests',
-      status: testStatus,
-      summary: `${testResults.filter((r) => r.status === 'passed').length}/${targets.length} packages`,
-      details: testResults
-        .filter((r) => r.status === 'failed')
-        .map((r) => `${r.title}: ${r.summary}`)
-        .join('\n') || undefined,
-      durationMs: aggregateDuration(testResults),
-    }
-    emitProgress(onProgress, eventFromCheck('tests', 'Tests', tests))
+    const tests = await runCached(
+      'tests',
+      'Tests',
+      joinedCommands(targets.map((pkg) => resolveWorkspaceScript(project, pkg, 'test'))),
+      runningMessage('Tests', null, verbose),
+      async () => {
+        const testResults: CheckResult[] = []
+        for (const pkg of targets) {
+          const testCmd = resolveWorkspaceScript(project, pkg, 'test')
+          testResults.push(
+            await runCommand(
+              `tests:${pkg.name}`,
+              `Tests (${pkg.name})`,
+              testCmd,
+              project.root,
+              Boolean(testCmd) && policy.require.tests,
+              180_000,
+            ),
+          )
+        }
+        return {
+          id: 'tests',
+          title: 'Tests',
+          status: aggregateStatus(testResults),
+          summary: `${testResults.filter((r) => r.status === 'passed').length}/${targets.length} packages`,
+          details:
+            testResults
+              .filter((r) => r.status === 'failed')
+              .map((r) => `${r.title}: ${r.summary}`)
+              .join('\n') || undefined,
+          durationMs: aggregateDuration(testResults),
+        }
+      },
+    )
 
-    emitProgress(onProgress, {
-      stage: 'build',
-      status: 'running',
-      message: runningMessage('Build', null, verbose),
-    })
-    const buildResults: CheckResult[] = []
-    for (const pkg of targets) {
-      const buildCmd = resolveWorkspaceScript(project, pkg, 'build')
-      buildResults.push(
-        await runCommand(
-          `build:${pkg.name}`,
-          `Build (${pkg.name})`,
-          buildCmd,
-          project.root,
-          Boolean(buildCmd) && policy.require.build,
-          180_000,
-        ),
-      )
-    }
-    const buildStatus = aggregateStatus(buildResults)
-    const build: CheckResult = {
-      id: 'build',
-      title: 'Build',
-      status: buildStatus,
-      summary: `${buildResults.filter((r) => r.status === 'passed').length}/${targets.length} packages`,
-      details: buildResults
-        .filter((r) => r.status === 'failed')
-        .map((r) => `${r.title}: ${r.summary}`)
-        .join('\n') || undefined,
-      durationMs: aggregateDuration(buildResults),
-    }
-    emitProgress(onProgress, eventFromCheck('build', 'Build', build))
+    const build = await runCached(
+      'build',
+      'Build',
+      joinedCommands(targets.map((pkg) => resolveWorkspaceScript(project, pkg, 'build'))),
+      runningMessage('Build', null, verbose),
+      async () => {
+        const buildResults: CheckResult[] = []
+        for (const pkg of targets) {
+          const buildCmd = resolveWorkspaceScript(project, pkg, 'build')
+          buildResults.push(
+            await runCommand(
+              `build:${pkg.name}`,
+              `Build (${pkg.name})`,
+              buildCmd,
+              project.root,
+              Boolean(buildCmd) && policy.require.build,
+              180_000,
+            ),
+          )
+        }
+        return {
+          id: 'build',
+          title: 'Build',
+          status: aggregateStatus(buildResults),
+          summary: `${buildResults.filter((r) => r.status === 'passed').length}/${targets.length} packages`,
+          details:
+            buildResults
+              .filter((r) => r.status === 'failed')
+              .map((r) => `${r.title}: ${r.summary}`)
+              .join('\n') || undefined,
+          durationMs: aggregateDuration(buildResults),
+        }
+      },
+    )
 
     const dependencies = await withCheckProgress(
       onProgress,
@@ -340,10 +403,10 @@ export async function runChecks(options: {
   const buildCmd = resolveBuildCommand(project)
 
   return [
-    await withCheckProgress(
-      onProgress,
+    await runCached(
       'typecheck',
       'Typecheck',
+      typeCmd,
       runningMessage('Typecheck', typeCmd, verbose),
       () =>
         runCommand(
@@ -355,10 +418,10 @@ export async function runChecks(options: {
         ),
       Boolean(typeCmd),
     ),
-    await withCheckProgress(
-      onProgress,
+    await runCached(
       'lint',
       'Lint',
+      lintCmd,
       runningMessage('Lint', lintCmd, verbose),
       () =>
         runLintCheck({
@@ -371,10 +434,10 @@ export async function runChecks(options: {
         }),
       Boolean(lintCmd),
     ),
-    await withCheckProgress(
-      onProgress,
+    await runCached(
       'tests',
       'Tests',
+      testCmd,
       runningMessage('Tests', testCmd, verbose),
       () =>
         runCommand(
@@ -387,10 +450,10 @@ export async function runChecks(options: {
         ),
       Boolean(testCmd),
     ),
-    await withCheckProgress(
-      onProgress,
+    await runCached(
       'build',
       'Build',
+      buildCmd,
       runningMessage('Build', buildCmd, verbose),
       () =>
         runCommand(
