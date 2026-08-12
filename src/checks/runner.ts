@@ -1,5 +1,5 @@
 import { execa } from 'execa'
-import type { CheckResult, ProjectModel } from '../core/types.js'
+import type { CheckResult, NormalizedDiff, ProjectModel } from '../core/types.js'
 import type { Policy } from '../policy/schema.js'
 import {
   resolveBuildCommand,
@@ -8,7 +8,7 @@ import {
   resolveTypecheckCommand,
 } from '../adapters/commands.js'
 import { runDependencyCheck } from './dependencies.js'
-import type { NormalizedDiff } from '../core/types.js'
+import { affectedPackages, listWorkspacePackages } from '../detect/monorepo.js'
 
 async function runCommand(
   id: string,
@@ -82,6 +82,82 @@ export async function runChecks(options: {
         summary: 'Skipped (--skip-checks)',
       },
     ]
+  }
+
+  const packages = listWorkspacePackages(project.root)
+  const affected = affectedPackages(diff, packages)
+  const targets =
+    project.monorepo.kind !== 'none' && affected.length > 0 ? affected : null
+
+  if (targets) {
+    const checks: CheckResult[] = []
+    let typeFailed = 0
+    let testFailed = 0
+    let buildFailed = 0
+    for (const pkg of targets) {
+      const typeCmd = resolveTypecheckCommand({
+        ...project,
+        root: pkg.dir,
+      })
+      const type = await runCommand(
+        `typecheck:${pkg.name}`,
+        `Typecheck (${pkg.name})`,
+        typeCmd,
+        pkg.dir,
+        Boolean(typeCmd) && policy.require.typecheck,
+      )
+      if (type.status === 'failed') typeFailed += 1
+      const testCmd = resolveTestCommand({ ...project, root: pkg.dir })
+      const tests = await runCommand(
+        `tests:${pkg.name}`,
+        `Tests (${pkg.name})`,
+        testCmd,
+        pkg.dir,
+        Boolean(testCmd) && policy.require.tests,
+        180_000,
+      )
+      if (tests.status === 'failed') testFailed += 1
+      const buildCmd = resolveBuildCommand({ ...project, root: pkg.dir })
+      const build = await runCommand(
+        `build:${pkg.name}`,
+        `Build (${pkg.name})`,
+        buildCmd,
+        pkg.dir,
+        Boolean(buildCmd) && policy.require.build,
+        180_000,
+      )
+      if (build.status === 'failed') buildFailed += 1
+    }
+
+    checks.push({
+      id: 'typecheck',
+      title: 'Typecheck',
+      status: typeFailed > 0 ? 'failed' : 'passed',
+      summary: `${targets.length - typeFailed}/${targets.length} packages`,
+    })
+    checks.push(
+      await runCommand(
+        'lint',
+        'Lint',
+        resolveLintCommand(project),
+        project.root,
+        policy.require.lint,
+      ),
+    )
+    checks.push({
+      id: 'tests',
+      title: 'Tests',
+      status: testFailed > 0 ? 'failed' : 'passed',
+      summary: `${targets.length - testFailed}/${targets.length} packages`,
+    })
+    checks.push({
+      id: 'build',
+      title: 'Build',
+      status: buildFailed > 0 ? 'failed' : 'passed',
+      summary: `${targets.length - buildFailed}/${targets.length} packages`,
+    })
+    checks.push(await runDependencyCheck(project, diff))
+    return checks
   }
 
   const checks: CheckResult[] = []
