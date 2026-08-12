@@ -113,6 +113,7 @@ export function isNonProductionPath(filePath: string): boolean {
     isTestPath(n) ||
     /\.md$/i.test(n) ||
     /(^|\/)\.github\//.test(n) ||
+    /(^|\/)scripts\//.test(n) ||
     /(^|\/)src\/rules\//.test(n) ||
     /(^|\/)action\.ya?ml$/.test(n)
   )

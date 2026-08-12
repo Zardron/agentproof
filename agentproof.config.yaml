@@ -13,6 +13,7 @@ require:
 
 dependencies:
   new_dependency: warn
+  advisories: true
 
 security:
   secret_detection: true

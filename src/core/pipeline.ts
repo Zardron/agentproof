@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import type { CliOptions, ReportModel } from './types.js'
 import { detectProject } from '../detect/project.js'
 import { computeDiff } from '../git/diff-engine.js'
@@ -9,8 +11,11 @@ import { computeChangeRisk, computeReadiness } from './scoring.js'
 import { formatTerminal } from '../reporters/terminal.js'
 import { formatJson } from '../reporters/json.js'
 import { formatSarif } from '../reporters/sarif.js'
+import { formatHtml } from '../reporters/html.js'
 import { emitGithubAnnotations } from '../reporters/github-annotations.js'
 import { exitCodeForMergeStatus } from './exit-codes.js'
+import { fetchAdvisoryFindings } from '../checks/advisories.js'
+import { dependencyFindingInputs } from '../checks/dependencies.js'
 
 export async function runPipeline(options: CliOptions): Promise<{
   report: ReportModel
@@ -34,6 +39,14 @@ export async function runPipeline(options: CliOptions): Promise<{
   })
 
   let findings = await runRules({ project, policy, diff })
+  const depInfo = dependencyFindingInputs(project, diff)
+  const advisoryPkgs = [
+    ...depInfo.added,
+    ...depInfo.majors.map((m) => ({ name: m.name, version: m.to })),
+  ]
+  findings.push(
+    ...(await fetchAdvisoryFindings(advisoryPkgs, policy.dependencies.advisories)),
+  )
   findings = applyPolicyToFindings(findings, policy)
 
   const domains = diff.files.flatMap((f) => f.riskDomains)
@@ -54,6 +67,13 @@ export async function runPipeline(options: CliOptions): Promise<{
     readiness,
     mergeStatus,
     blockedReasons,
+  }
+
+  if (options.html) {
+    const htmlPath = path.isAbsolute(options.html)
+      ? options.html
+      : path.join(options.cwd, options.html)
+    fs.writeFileSync(htmlPath, formatHtml(report), 'utf8')
   }
 
   let output: string

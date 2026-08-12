@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.2.1
+
+### Fixed
+
+- Monorepo checks now resolve per-package scripts via workspace filters (`pnpm --filter` / `npm -w` / `yarn workspace`)
+- Dependency analysis reads the changed workspace `package.json` (not always the repo root)
+- Framework `suggestBuild` is wired into project detection; adapters no longer claim a build when no script exists
+- `--skip-checks` reports all check categories as skipped
+- Security rules skip `scripts/` (CI helper tooling) to avoid dogfood false positives
+
+### Added
+
+- Security rules: `sec.open_redirect`, `sec.path_traversal`, `sec.unsafe_file_write`, `sec.headers_weakened`, `sec.sensitive_logging`
+
+## 0.2.0
+
+### Added
+
+- Framework adapters for Fastify, Hono, Remix, Astro, Nuxt, Vue, SvelteKit, and Angular
+- Optional local HTML report via `--html` / `--html path/to/report.html`
+- TypeScript config loading for `agentproof.config.ts` (via jiti)
+- Monorepo-aware check targeting for changed workspace packages
+- OSV advisory enrichment for new/upgraded dependencies (`dependencies.advisories`)
+- Version read from `package.json`; CI requires a version bump on every PR
+
 ## 0.1.0
 
 ### Added
@@ -10,6 +35,6 @@
 - Checks: typecheck, lint, tests, build, dependency changes
 - Security and secret rules with evidence
 - Auth / authz regression detection vs base branch
-- Policy config (`agentproof.config.yaml` / `.ts`)
+- Policy config (`agentproof.config.yaml` / `.json`)
 - Terminal, JSON, and SARIF reporters
 - GitHub Action and annotations in `--ci`

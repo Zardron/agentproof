@@ -4,5 +4,5 @@ coverage
 *.log
 .DS_Store
 .env
-.env.*
+agentproof-report.html
 !.env.example

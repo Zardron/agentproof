@@ -1,4 +1,4 @@
-import { addedLines } from '../../git/diff-engine.js'
+import { addedLines, removedLines } from '../../git/diff-engine.js'
 import { isNonProductionPath } from '../../git/classify.js'
 import type { Rule } from '../interface.js'
 import { makeFinding } from '../interface.js'
@@ -206,6 +206,217 @@ export const dangerousHtmlRule: Rule = {
             }),
           )
         }
+      }
+    }
+    return findings
+  },
+}
+
+export const openRedirectRule: Rule = {
+  id: 'sec.open_redirect',
+  title: 'Dangerous redirect',
+  category: 'security',
+  severity: 'high',
+  confidence: 'high',
+  supports: () => true,
+  async run(ctx) {
+    const findings = []
+    for (const file of ctx.diff.files) {
+      if (isNonProductionPath(file.path)) continue
+      if (!/\.[cm]?[jt]sx?$/.test(file.path)) continue
+      for (const { line, content } of addedLines(file)) {
+        if (/^\s*(\/\/|\/\*|\*)/.test(content)) continue
+        const hit =
+          /\b(?:res|response)\.redirect\s*\(\s*(?:req\.|request\.|url|searchParams|query|params)/.test(
+            content,
+          ) ||
+          /\b(?:redirect|NextResponse\.redirect|Response\.redirect)\s*\(\s*(?:req\.|request\.|url|searchParams|query|params|new\s+URL\s*\()/.test(
+            content,
+          ) ||
+          /\blocation\s*=\s*(?:req\.|request\.|searchParams)/.test(content)
+        if (!hit) continue
+        findings.push(
+          makeFinding(openRedirectRule, {
+            message: 'Possible open redirect using request-controlled destination',
+            file: file.path,
+            line,
+            evidence: { currentSnippet: content.trim().slice(0, 160) },
+            remediation:
+              'Allow-list redirect targets or map tokens to known internal paths; never redirect to raw user input.',
+          }),
+        )
+      }
+    }
+    return findings
+  },
+}
+
+export const pathTraversalRule: Rule = {
+  id: 'sec.path_traversal',
+  title: 'Path traversal risk',
+  category: 'security',
+  severity: 'high',
+  confidence: 'high',
+  supports: () => true,
+  async run(ctx) {
+    const findings = []
+    for (const file of ctx.diff.files) {
+      if (isNonProductionPath(file.path)) continue
+      if (!/\.[cm]?[jt]sx?$/.test(file.path)) continue
+      for (const { line, content } of addedLines(file)) {
+        if (/^\s*(\/\/|\/\*|\*)/.test(content)) continue
+        const hit =
+          /\b(?:path\.(?:join|resolve)|join|resolve)\s*\([^)]*(?:req\.|request\.|params\.|query\.|searchParams)/.test(
+            content,
+          ) ||
+          /\b(?:readFile|readFileSync|createReadStream|access|stat)\s*\([^)]*(?:req\.|request\.|params\.|query\.)/.test(
+            content,
+          ) ||
+          /['"`][^'"`]*\.\.\/[^'"`]*['"`]\s*\+|`[^`]*\$\{[^}]*(?:req|request|params|query)/.test(
+            content,
+          )
+        if (!hit) continue
+        findings.push(
+          makeFinding(pathTraversalRule, {
+            message: 'Filesystem path built from request input (path traversal risk)',
+            file: file.path,
+            line,
+            evidence: { currentSnippet: content.trim().slice(0, 160) },
+            remediation:
+              'Resolve under a fixed root and reject paths that escape it; never pass raw user input to filesystem APIs.',
+          }),
+        )
+      }
+    }
+    return findings
+  },
+}
+
+export const unsafeFileWriteRule: Rule = {
+  id: 'sec.unsafe_file_write',
+  title: 'Unsafe file write',
+  category: 'security',
+  severity: 'high',
+  confidence: 'high',
+  supports: () => true,
+  async run(ctx) {
+    const findings = []
+    for (const file of ctx.diff.files) {
+      if (isNonProductionPath(file.path)) continue
+      if (!/\.[cm]?[jt]sx?$/.test(file.path)) continue
+      for (const { line, content } of addedLines(file)) {
+        if (/^\s*(\/\/|\/\*|\*)/.test(content)) continue
+        const hit =
+          /\b(?:writeFile|writeFileSync|appendFile|appendFileSync|createWriteStream|outputFile|outputFileSync)\s*\([^)]*(?:req\.|request\.|params\.|query\.|body)/.test(
+            content,
+          )
+        if (!hit) continue
+        findings.push(
+          makeFinding(unsafeFileWriteRule, {
+            message: 'File write uses request-controlled path or content',
+            file: file.path,
+            line,
+            evidence: { currentSnippet: content.trim().slice(0, 160) },
+            remediation:
+              'Write only to allow-listed paths with validated names; never use raw request paths for writes.',
+          }),
+        )
+      }
+    }
+    return findings
+  },
+}
+
+export const headersWeakenedRule: Rule = {
+  id: 'sec.headers_weakened',
+  title: 'Security headers weakened',
+  category: 'security',
+  severity: 'high',
+  confidence: 'high',
+  supports: () => true,
+  async run(ctx) {
+    const findings = []
+    for (const file of ctx.diff.files) {
+      if (isNonProductionPath(file.path)) continue
+      const current = file.currentContent || ''
+
+      for (const { line, content } of removedLines(file)) {
+        const looksLikeHeader =
+          /\bhelmet\b/.test(content) ||
+          /content-security-policy/i.test(content) ||
+          /x-frame-options/i.test(content) ||
+          /strict-transport-security/i.test(content) ||
+          /x-content-type-options/i.test(content)
+        if (!looksLikeHeader) continue
+        const snippet = content.trim().slice(0, 80)
+        if (snippet && current.includes(snippet)) continue
+        findings.push(
+          makeFinding(headersWeakenedRule, {
+            message: 'Security header / helmet middleware removed',
+            file: file.path,
+            line,
+            confidence: 'confirmed',
+            evidence: { baseSnippet: content.trim().slice(0, 160) },
+            remediation:
+              'Restore security headers (helmet/CSP/HSTS/XFO) unless replaced equivalently.',
+          }),
+        )
+      }
+
+      for (const { line, content } of addedLines(file)) {
+        if (/^\s*(\/\/|\/\*|\*)/.test(content)) continue
+        if (
+          /contentSecurityPolicy\s*:\s*false/.test(content) ||
+          /xFrameOptions\s*:\s*false/.test(content) ||
+          /hsts\s*:\s*false/.test(content)
+        ) {
+          findings.push(
+            makeFinding(headersWeakenedRule, {
+              message: 'Security header protection disabled',
+              file: file.path,
+              line,
+              evidence: { currentSnippet: content.trim().slice(0, 160) },
+              remediation: 'Keep CSP/HSTS/frame protections enabled with a tight policy.',
+            }),
+          )
+        }
+      }
+    }
+    return findings
+  },
+}
+
+export const sensitiveLoggingRule: Rule = {
+  id: 'sec.sensitive_logging',
+  title: 'Sensitive data logged',
+  category: 'security',
+  severity: 'medium',
+  confidence: 'high',
+  supports: () => true,
+  async run(ctx) {
+    const findings = []
+    for (const file of ctx.diff.files) {
+      if (isNonProductionPath(file.path)) continue
+      if (!/\.[cm]?[jt]sx?$/.test(file.path)) continue
+      for (const { line, content } of addedLines(file)) {
+        if (/^\s*(\/\/|\/\*|\*)/.test(content)) continue
+        const hit =
+          /\b(?:console\.(?:log|info|debug|warn|error)|logger\.(?:log|info|debug|warn|error|trace)|log\.(?:info|debug|warn|error))\s*\([^)]*\b(?:password|passwd|secret|token|api[_-]?key|authorization|auth[_-]?header|private[_-]?key|credit[_-]?card|ssn)\b/i.test(
+            content,
+          ) ||
+          /\b(?:password|passwd|secret|token|apiKey|api_key|authorization)\s*[:=]\s*[^,\n)]+\s*[,)].*(?:console|logger|log)\./i.test(
+            content,
+          )
+        if (!hit) continue
+        findings.push(
+          makeFinding(sensitiveLoggingRule, {
+            message: 'Possible logging of secrets or credentials',
+            file: file.path,
+            line,
+            evidence: { currentSnippet: content.trim().slice(0, 160) },
+            remediation: 'Redact secrets before logging; log identifiers only, never raw tokens/passwords.',
+          }),
+        )
       }
     }
     return findings

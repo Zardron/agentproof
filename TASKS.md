@@ -1,8 +1,8 @@
 # Tasks
 
-Tracked work for AgentProof. Phase 1 is the current focus.
+Tracked work for AgentProof.
 
-## Phase 1 (current)
+## Phase 1
 
 - [x] Scaffold package (`agentproof`), MIT, TypeScript ESM, tsup
 - [x] Core docs: README, ARCHITECTURE, TASKS, RULES, SECURITY, CONTRIBUTING, CODE_OF_CONDUCT, CHANGELOG, ROADMAP, LICENSE
@@ -12,19 +12,22 @@ Tracked work for AgentProof. Phase 1 is the current focus.
 - [x] Git diff engine + risk domain classifier
 - [x] Checks: typecheck, lint, tests, build, dependencies
 - [x] Policy engine (`fail_on`, protected areas, require.*, dependency policy)
-- [x] 12 high-value rules (secrets, security, auth regression, deps, untested sensitive)
+- [x] High-value rules (secrets, security, auth regression, deps, untested sensitive; expanded in 0.2.1)
 - [x] Scoring + merge status
 - [x] Reporters: terminal, JSON, SARIF, GitHub annotations
 - [x] GitHub Action (`action.yml`)
 - [x] Unit + integration tests and fixtures (clean / vulnerable / false-positive)
 
-## Phase 2
+## Phase 2 (current)
 
-- [ ] Monorepo package targeting (Turbo/Nx/pnpm filters) for checks
-- [ ] HTML report (optional, local-only)
+- [x] Monorepo package targeting for changed workspaces
+- [x] HTML report (`--html`)
+- [x] Broader framework adapters (Fastify, Hono, Remix, Astro, Nuxt, SvelteKit, Angular, Vue)
+- [x] OSV advisory enrichment for dependency findings
+- [x] TypeScript config loading (`agentproof.config.ts`)
+- [x] Version bump required on every PR
+- [x] Additional high-value security rules (redirect, path traversal, file write, headers, sensitive logging)
 - [ ] Diff-aware lint “new issues only” via baseline
-- [ ] Broader framework adapters (Fastify, Hono, Remix, Astro, Nuxt, SvelteKit, Angular, Vue)
-- [ ] Local vulnerability DB / OSV for dependency findings
 - [ ] Team policy packs (shareable YAML)
 
 ## Phase 3
