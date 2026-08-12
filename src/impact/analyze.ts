@@ -1,6 +1,12 @@
 import path from 'node:path'
 import micromatch from 'micromatch'
-import type { NormalizedDiff, TestImpactReport, TestImpactLink, UntestedSource, TestLinkConfidence } from '../core/types.js'
+import type {
+  NormalizedDiff,
+  TestImpactReport,
+  TestImpactLink,
+  UntestedSource,
+  TestLinkConfidence,
+} from '../core/types.js'
 import type { Policy } from '../policy/schema.js'
 import { isHighRiskDomain, isTestPath } from '../git/classify.js'
 import { parseRelativeImports } from './imports.js'
@@ -43,6 +49,54 @@ function isCriticalSource(filePath: string, diff: NormalizedDiff, policy: Policy
   return false
 }
 
+/** Forward edges: file → relative imports it resolves to. */
+function buildImportGraph(
+  cwd: string,
+  sources: string[],
+  fileSet: Set<string>,
+): Map<string, string[]> {
+  const graph = new Map<string, string[]>()
+  for (const source of sources) {
+    const targets: string[] = []
+    for (const spec of parseRelativeImports(readFile(cwd, source))) {
+      const resolved = resolveRelativeImport(source, spec, fileSet)
+      if (resolved && isSourceFile(resolved)) targets.push(resolved)
+    }
+    graph.set(source, targets)
+  }
+  return graph
+}
+
+function reverseGraph(forward: Map<string, string[]>): Map<string, string[]> {
+  const reverse = new Map<string, string[]>()
+  for (const [from, tos] of forward) {
+    for (const to of tos) {
+      const list = reverse.get(to)
+      if (list) list.push(from)
+      else reverse.set(to, [from])
+    }
+  }
+  return reverse
+}
+
+/** BFS over edges starting from seeds. */
+function collectReachable(
+  seeds: Iterable<string>,
+  edges: Map<string, string[]>,
+): Set<string> {
+  const out = new Set<string>()
+  const queue = [...seeds]
+  while (queue.length > 0) {
+    const node = queue.pop()!
+    if (out.has(node)) continue
+    out.add(node)
+    for (const next of edges.get(node) ?? []) {
+      if (!out.has(next)) queue.push(next)
+    }
+  }
+  return out
+}
+
 export function analyzeTestImpact(options: {
   cwd: string
   diff: NormalizedDiff
@@ -51,61 +105,65 @@ export function analyzeTestImpact(options: {
   const files = listProjectFiles(options.cwd)
   const fileSet = new Set(files)
   const tests = files.filter((file) => isTestPath(file))
+  const sources = files.filter((file) => isSourceFile(file))
   const changedSourceFiles = options.diff.files
     .filter((file) => file.status !== 'D' && isSourceFile(file.path))
     .map((file) => posixPath(file.path))
     .sort()
 
-  const importedByChanged = new Set<string>()
+  const forward = buildImportGraph(options.cwd, sources, fileSet)
+  const reverse = reverseGraph(forward)
+
+  // Dependents (who imports a changed file, transitively) + direct deps of changed files.
+  const dependents = collectReachable(changedSourceFiles, reverse)
+  const directDeps = new Set<string>()
   for (const source of changedSourceFiles) {
-    const specifiers = parseRelativeImports(readFile(options.cwd, source))
-    for (const spec of specifiers) {
-      const resolved = resolveRelativeImport(source, spec, fileSet)
-      if (resolved && isSourceFile(resolved)) importedByChanged.add(resolved)
-    }
+    for (const dep of forward.get(source) ?? []) directDeps.add(dep)
   }
 
-  const affectedModules = [...new Set([...changedSourceFiles, ...importedByChanged])].sort()
-  const watch = new Set(affectedModules)
+  const affectedModules = [
+    ...new Set([...changedSourceFiles, ...dependents, ...directDeps]),
+  ].sort()
 
-  const testsBySource = new Map<string, { tests: Set<string>; confidence: TestLinkConfidence }>()
-  const ensure = (source: string, confidence: TestLinkConfidence) => {
-    const current = testsBySource.get(source)
-    if (!current) {
-      testsBySource.set(source, { tests: new Set(), confidence })
-      return testsBySource.get(source)!
-    }
-    if (confidence === 'import') current.confidence = 'import'
-    return current
-  }
-
+  // test → source files it imports (resolved)
+  const testImports = new Map<string, string[]>()
   for (const testFile of tests) {
-    const specifiers = parseRelativeImports(readFile(options.cwd, testFile))
-    for (const spec of specifiers) {
+    const imported: string[] = []
+    for (const spec of parseRelativeImports(readFile(options.cwd, testFile))) {
       const resolved = resolveRelativeImport(testFile, spec, fileSet)
-      if (resolved && watch.has(resolved)) {
-        ensure(resolved, 'import').tests.add(testFile)
-      }
+      if (resolved && isSourceFile(resolved)) imported.push(resolved)
     }
+    testImports.set(testFile, imported)
   }
 
+  const relatedTests: TestImpactLink[] = []
   for (const source of changedSourceFiles) {
-    for (const candidate of namingCandidates(source)) {
-      if (fileSet.has(candidate)) ensure(source, 'naming').tests.add(candidate)
-    }
-  }
+    // Modules impacted by this specific change: the file itself + transitive importers.
+    const closure = collectReachable([source], reverse)
+    const testsForSource = new Map<string, TestLinkConfidence>()
 
-  const relatedTests: TestImpactLink[] = changedSourceFiles
-    .map((source) => {
-      const linked = testsBySource.get(source)
-      if (!linked || linked.tests.size === 0) return null
-      return {
-        source,
-        tests: [...linked.tests].sort(),
-        confidence: linked.confidence,
+    for (const [testFile, imported] of testImports) {
+      if (imported.some((mod) => closure.has(mod))) {
+        testsForSource.set(testFile, 'import')
       }
+    }
+
+    for (const candidate of namingCandidates(source)) {
+      if (fileSet.has(candidate) && !testsForSource.has(candidate)) {
+        testsForSource.set(candidate, 'naming')
+      }
+    }
+
+    if (testsForSource.size === 0) continue
+    const confidence: TestLinkConfidence = [...testsForSource.values()].includes('import')
+      ? 'import'
+      : 'naming'
+    relatedTests.push({
+      source,
+      tests: [...testsForSource.keys()].sort(),
+      confidence,
     })
-    .filter((row): row is TestImpactLink => row !== null)
+  }
 
   const linkedSources = new Set(relatedTests.map((row) => row.source))
   const untested: UntestedSource[] = changedSourceFiles

@@ -14,7 +14,7 @@ import { formatJson } from '../reporters/json.js'
 import { formatSarif } from '../reporters/sarif.js'
 import { formatHtml } from '../reporters/html.js'
 import { emitGithubAnnotations } from '../reporters/github-annotations.js'
-import { exitCodeForMergeStatus } from './exit-codes.js'
+import { EXIT_PASS, exitCodeForMergeStatus } from './exit-codes.js'
 import { fetchAdvisoryFindings } from '../checks/advisories.js'
 import { dependencyFindingInputs } from '../checks/dependencies.js'
 import { analyzeTestImpact, formatAffectedTests } from '../impact/analyze.js'
@@ -87,6 +87,35 @@ export async function runPipeline(options: CliOptions): Promise<{
     })
 
     const testImpact = analyzeTestImpact({ cwd: options.cwd, diff, policy })
+
+    // Script mode: print related tests only — skip checks, rules, and scoring.
+    const affectedTestsOnly =
+      Boolean(options.affectedTests) && !options.json && !options.sarif && !options.html
+
+    if (affectedTestsOnly) {
+      emitProgress(onProgress, {
+        stage: 'report',
+        status: 'completed',
+        message: 'Affected tests listed',
+        detail: `${testImpact.affectedTestPaths.length} test path${testImpact.affectedTestPaths.length === 1 ? '' : 's'}`,
+      })
+      const report: ReportModel = {
+        project,
+        diff,
+        checks: [],
+        findings: [],
+        changeRisk: 'LOW',
+        readiness: 100,
+        mergeStatus: 'PASS',
+        blockedReasons: [],
+        testImpact,
+      }
+      return {
+        report,
+        exitCode: EXIT_PASS,
+        output: formatAffectedTests(testImpact),
+      }
+    }
 
     const checks = await runChecks({
       project,

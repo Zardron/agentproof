@@ -213,10 +213,10 @@ Full rule catalog: [RULES.md](./RULES.md).
 
 AgentProof also reports whether changed source files have **related tests**, using only deterministic signals:
 
-- relative `import` / `require` / `export from` in test files that resolve to a changed source file
+- relative `import` / `require` / `export from` edges (including transitive dependents of a changed file)
 - existing files that match naming conventions (`foo.ts` → `foo.test.ts`, `tests/foo.test.ts`)
 
-It does **not** guess from npm package names or English similarity. `--affected-tests` prints the related test paths, one per line, for scripts:
+It does **not** guess from npm package names or English similarity. `--affected-tests` prints the related test paths, one per line, for scripts — and skips typecheck/lint/tests/build/security so it stays fast:
 
 ```bash
 npx agentproof --base main --affected-tests
