@@ -1,0 +1,13 @@
+{
+  "name": "agentproof-fixture-clean",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "express": "^4.21.0"
+  },
+  "scripts": {
+    "build": "echo build-ok",
+    "test": "node --test",
+    "typecheck": "echo types-ok"
+  }
+}
