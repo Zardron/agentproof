@@ -110,6 +110,8 @@ export interface Finding {
   evidence: FindingEvidence
   remediation?: string
   category: string
+  /** Present when a committed baseline file was applied. */
+  baselineStatus?: 'new' | 'existing'
 }
 
 export type CheckStatus = 'passed' | 'failed' | 'skipped' | 'warned'
@@ -136,6 +138,8 @@ export interface CliOptions {
   skipChecks: boolean
   verbose?: boolean
   onProgress?: ProgressCallback
+  /** When false, skip loading `.agentproof-baseline.json` (used while recording a baseline). */
+  applyBaseline?: boolean
 }
 
 export type ProgressStage =
@@ -170,6 +174,13 @@ export interface ProgressEvent {
 
 export type ProgressCallback = (event: ProgressEvent) => void
 
+export interface BaselineReport {
+  path: string
+  existing: number
+  new: number
+  resolved: number
+}
+
 export interface ReportModel {
   project: ProjectModel
   diff: NormalizedDiff
@@ -179,4 +190,5 @@ export interface ReportModel {
   readiness: number
   mergeStatus: MergeStatus
   blockedReasons: string[]
+  baseline?: BaselineReport
 }

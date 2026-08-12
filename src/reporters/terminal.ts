@@ -68,6 +68,14 @@ export function formatTerminal(report: ReportModel): string {
   lines.push(
     `Production Readiness      ${chalk.bold(`${report.readiness}/100`)}`,
   )
+  if (report.baseline) {
+    lines.push('')
+    lines.push('Baseline')
+    lines.push('──────────────────────────')
+    lines.push(`Existing baseline findings    ${report.baseline.existing}`)
+    lines.push(`New findings                   ${report.baseline.new}`)
+    lines.push(`Resolved findings              ${report.baseline.resolved}`)
+  }
   lines.push('')
 
   for (const check of report.checks) {

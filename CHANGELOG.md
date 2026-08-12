@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `agentproof baseline` records accepted findings to `.agentproof-baseline.json` (or `baseline.path`)
+- Subsequent runs report existing / new / resolved findings and can gate merge status on new issues only
+
+### Fixed
+
+- `agentproof baseline` honors `policy.baseline.path` instead of always writing `.agentproof-baseline.json`
+- GitHub annotations skip existing (baselined) findings when `baseline.new_issues_only` is on, matching merge status
+
 ## 0.4.1
 
 ### Added

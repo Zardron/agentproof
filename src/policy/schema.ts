@@ -43,6 +43,12 @@ export const policySchema = z.object({
   severity_overrides: z
     .record(z.enum(['critical', 'high', 'medium', 'low', 'info']))
     .default({}),
+  baseline: z
+    .object({
+      path: z.string().default('.agentproof-baseline.json'),
+      new_issues_only: z.boolean().default(true),
+    })
+    .default({}),
 })
 
 export type Policy = z.infer<typeof policySchema>

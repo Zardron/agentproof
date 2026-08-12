@@ -115,6 +115,7 @@ Then the full report is printed. In CI or non-TTY terminals, the same stages are
 
 | What you want to do | Command |
 |---------------------|---------|
+| Record current findings as a baseline | `npx agentproof baseline --base main` |
 | Compare current branch against main | `npx agentproof --base main` |
 | Check staged changes before committing | `npx agentproof --staged` |
 | Check uncommitted work vs `HEAD` (default) | `npx agentproof` |
@@ -138,6 +139,8 @@ AgentProof scores findings and check results against your policy (`fail_on`, req
 - **BLOCKED** — a required check failed, a finding meets or exceeds `fail_on`, or dependency policy is set to `block`
 
 With `--ci`, a **BLOCKED** result exits with code `1` so CI jobs fail. Without `--ci`, BLOCKED is still printed but the process exits `0`.
+
+If `.agentproof-baseline.json` is present, merge status uses **new** findings only. Required check failures still block. The report still lists existing and resolved counts.
 
 On GitHub Actions, findings are also emitted as pull-request annotations (errors/warnings/notices). `--ci` alone does not print annotations outside GitHub Actions.
 
@@ -276,6 +279,7 @@ npx agentproof --help
 
 | Flag / argument | Purpose | Example |
 |-----------------|---------|---------|
+| `baseline` | Record currently accepted findings to `baseline.path` (default `.agentproof-baseline.json`) | `npx agentproof baseline --base main` |
 | `[revision]` | Compare that revision to `HEAD` (e.g. previous commit) | `npx agentproof HEAD~1` |
 | `--base <ref>` | Compare against a branch or commit (recommended for feature branches) | `npx agentproof --base main` |
 | `--staged` | Analyze staged changes only | `npx agentproof --staged` |
@@ -298,6 +302,32 @@ If both `--staged` and `--base` are passed, **`--staged` wins**. If both `--json
 ## Configuration
 
 Config is optional. Without a file, built-in defaults apply (typecheck required, `fail_on: high`, secret detection and auth regression enabled, advisories on).
+
+### Baseline (new issues only)
+
+Existing projects can adopt AgentProof without being blocked by legacy findings.
+
+```bash
+npx agentproof baseline --base main
+```
+
+This writes a deterministic, secret-free baseline file (`baseline.path`, default `.agentproof-baseline.json`) that is safe to commit. Fingerprints use rule id, file path, and normalized message — not line numbers or evidence snippets — so findings still match after line movement. Deleted files show up as resolved.
+
+Later runs:
+
+```text
+Existing baseline findings    23
+New findings                   2
+Resolved findings              4
+```
+
+Merge status then focuses on **new** findings. Required checks (typecheck/lint/tests/build) still gate as usual. Re-run `agentproof baseline` with the same git flags to update the accepted set.
+
+```yaml
+baseline:
+  path: .agentproof-baseline.json
+  new_issues_only: true
+```
 
 ### Minimal example
 
@@ -355,6 +385,10 @@ ignore_rules:
 
 severity_overrides:
   dep.new_package: low
+
+baseline:
+  path: .agentproof-baseline.json
+  new_issues_only: true
 ```
 
 ### Policy packs

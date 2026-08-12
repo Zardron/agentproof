@@ -16,6 +16,8 @@ export { detectProject } from './detect/project.js'
 export { describeProject } from './detect/frameworks/index.js'
 export { loadPolicy, defaultPolicy, policySchema } from './policy/schema.js'
 export type { Policy } from './policy/schema.js'
+export { recordBaseline } from './baseline/run.js'
+export { DEFAULT_BASELINE_FILE, fingerprintFinding } from './baseline/fingerprint.js'
 export {
   listBuiltinPackNames,
   loadPack,

@@ -27,7 +27,40 @@ describe('CLI help', () => {
     expect(help.stdout.toLowerCase()).toContain('agentproof')
     expect(help.stdout).toContain('--html')
     expect(help.stdout).toContain('--verbose')
+    expect(help.stdout).toContain('baseline')
     void result
+  })
+})
+
+describe('CLI baseline', () => {
+  it('writes a committed baseline file and later runs report new-vs-existing', async () => {
+    await execa('npm', ['run', 'build'], { cwd: root })
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ap-cli-baseline-'))
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'demo' }))
+
+    const recorded = await execa('node', ['dist/cli/index.js', 'baseline', '--cwd', dir, '--skip-checks'], {
+      cwd: root,
+      env: { ...process.env, CI: 'true' },
+    })
+    expect(recorded.stdout).toContain('AgentProof Baseline')
+    expect(recorded.stdout).toContain('.agentproof-baseline.json')
+    expect(recorded.exitCode).toBe(0)
+    expect(fs.existsSync(path.join(dir, '.agentproof-baseline.json'))).toBe(true)
+
+    const analyzed = await execa(
+      'node',
+      ['dist/cli/index.js', '--cwd', dir, '--skip-checks', '--json'],
+      {
+        cwd: root,
+        env: { ...process.env, CI: 'true' },
+      },
+    )
+    const parsed = JSON.parse(analyzed.stdout) as {
+      baseline?: { existing: number; new: number; resolved: number }
+    }
+    expect(parsed.baseline).toBeDefined()
+    expect(parsed.baseline?.new).toBe(0)
+    expect(analyzed.exitCode).toBe(0)
   })
 })
 
