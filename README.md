@@ -417,12 +417,25 @@ Without `config`, the Action generates a CI policy that extends the `ci` pack (t
 ### 2. Install the CLI manually
 
 ```yaml
-- uses: actions/checkout@v4
-  with:
-    fetch-depth: 0
-- run: npm install -D agentproof-cli
-- run: npx agentproof --base origin/main --ci
+name: AgentProof
+
+on:
+  pull_request:
+
+jobs:
+  agentproof:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: npm install -D agentproof-cli
+      - run: npx agentproof --base origin/main --ci
 ```
+
+`permissions.contents: read` is enough here too. Annotations still come from workflow commands on stderr; no extra token is required.
 
 ---
 

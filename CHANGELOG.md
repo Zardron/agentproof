@@ -5,7 +5,7 @@
 ### Added
 
 - GitHub Actions pull-request annotations are capped, severity-ranked, and summarized so PRs are not flooded
-- Workflow examples document `contents: read` (no extra token or hosted backend)
+- Workflow examples document `contents: read` (no extra token or hosted backend), including the manual CLI job
 
 ## 0.4.1
 
