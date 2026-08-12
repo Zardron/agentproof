@@ -22,6 +22,7 @@ export const policySchema = z.object({
       new_dependency: z
         .enum(['allow', 'warn', 'review', 'block'])
         .default('warn'),
+      advisories: z.boolean().default(true),
     })
     .default({}),
   security: z
@@ -40,6 +41,29 @@ export type Policy = z.infer<typeof policySchema>
 
 export const defaultPolicy: Policy = policySchema.parse({})
 
+async function loadTsConfig(abs: string): Promise<unknown> {
+  const { createJiti } = await import('jiti')
+  const jiti = createJiti(import.meta.url)
+  const loaded = await jiti.import(abs)
+  if (loaded && typeof loaded === 'object' && 'default' in loaded) {
+    return (loaded as { default: unknown }).default
+  }
+  return loaded
+}
+
+async function parseConfigFile(abs: string): Promise<unknown> {
+  if (abs.endsWith('.ts') || abs.endsWith('.mts') || abs.endsWith('.cts')) {
+    return loadTsConfig(abs)
+  }
+  if (abs.endsWith('.js') || abs.endsWith('.mjs') || abs.endsWith('.cjs')) {
+    const loaded = await import(abs)
+    return loaded.default ?? loaded
+  }
+  const raw = fs.readFileSync(abs, 'utf8')
+  if (abs.endsWith('.json')) return JSON.parse(raw)
+  return yaml.load(raw)
+}
+
 export async function loadPolicy(
   cwd: string,
   configPath?: string,
@@ -48,10 +72,7 @@ export async function loadPolicy(
     const abs = path.isAbsolute(configPath)
       ? configPath
       : path.join(cwd, configPath)
-    const raw = fs.readFileSync(abs, 'utf8')
-    const data = abs.endsWith('.json')
-      ? JSON.parse(raw)
-      : yaml.load(raw)
+    const data = await parseConfigFile(abs)
     return policySchema.parse(data ?? {})
   }
 
@@ -72,6 +93,8 @@ export async function loadPolicy(
     loaders: {
       '.yaml': (_filepath, content) => yaml.load(content),
       '.yml': (_filepath, content) => yaml.load(content),
+      '.ts': async (filepath) => loadTsConfig(filepath),
+      '.mts': async (filepath) => loadTsConfig(filepath),
     },
   })
 
