@@ -16,9 +16,10 @@ describe('classifyPath', () => {
     expect(classifyPath('src/auth/permissions.ts')).toContain('authorization')
   })
 
-  it('detects tests', () => {
+  it('detects tests and fixtures', () => {
     expect(isTestPath('src/foo.test.ts')).toBe(true)
     expect(isTestPath('src/foo.ts')).toBe(false)
+    expect(isTestPath('fixtures/vulnerable/src/bad.ts')).toBe(true)
   })
 })
 

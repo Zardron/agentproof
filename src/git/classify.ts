@@ -100,8 +100,20 @@ export function isTestPath(filePath: string): boolean {
   const n = filePath.split(path.sep).join('/')
   return (
     /\.(test|spec)\.[cm]?[jt]sx?$/.test(n) ||
-    /\/__tests__\//.test(n) ||
-    /\/tests?\//.test(n) ||
-    /\/fixtures\//.test(n)
+    /(^|\/)__tests__\//.test(n) ||
+    /(^|\/)tests?\//.test(n) ||
+    /(^|\/)fixtures\//.test(n)
+  )
+}
+
+/** Paths that should not produce production security findings. */
+export function isNonProductionPath(filePath: string): boolean {
+  const n = filePath.split(path.sep).join('/')
+  return (
+    isTestPath(n) ||
+    /\.md$/i.test(n) ||
+    /(^|\/)\.github\//.test(n) ||
+    /(^|\/)src\/rules\//.test(n) ||
+    /(^|\/)action\.ya?ml$/.test(n)
   )
 }

@@ -1,5 +1,5 @@
 import { addedLines } from '../../git/diff-engine.js'
-import { isTestPath } from '../../git/classify.js'
+import { isNonProductionPath, isTestPath } from '../../git/classify.js'
 import type { Rule } from '../interface.js'
 import { makeFinding } from '../interface.js'
 
@@ -35,7 +35,7 @@ export const secretHardcodedRule: Rule = {
   async run(ctx) {
     const findings = []
     for (const file of ctx.diff.files) {
-      if (ALLOWED_FILES.test(file.path)) continue
+      if (ALLOWED_FILES.test(file.path) || isNonProductionPath(file.path)) continue
       if (file.status === 'D') continue
 
       const lines = addedLines(file)

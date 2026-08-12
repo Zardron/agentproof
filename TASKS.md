@@ -36,7 +36,5 @@ Tracked work for AgentProof. Phase 1 is the current focus.
 
 ## Never
 
-- Guessing whether code was written by AI
 - Uploading source without explicit opt-in
-- Requiring paid AI APIs for core analysis
 - Shipping hundreds of low-signal rules

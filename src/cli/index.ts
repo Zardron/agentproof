@@ -8,7 +8,7 @@ async function main(): Promise<void> {
   program
     .name('agentproof')
     .description(
-      'Verify AI-assisted code before it reaches production. Checks the code change, not who wrote it.',
+      'Verify code changes before they reach production.',
     )
     .version('0.1.0')
     .argument('[revision]', 'Git revision to compare (e.g. HEAD~1)')

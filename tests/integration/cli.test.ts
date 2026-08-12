@@ -74,7 +74,7 @@ describe('vulnerable fixture rules', () => {
     }))
 
     const file: DiffFile = {
-      path: 'fixtures/vulnerable/src/bad.ts',
+      path: 'src/bad.ts',
       status: 'A',
       language: 'typescript',
       riskDomains: ['api_routes'],
@@ -89,7 +89,7 @@ describe('vulnerable fixture rules', () => {
       'utf8',
     )
     const authFile: DiffFile = {
-      path: 'fixtures/vulnerable/src/auth/permissions.ts',
+      path: 'src/auth/permissions.ts',
       status: 'M',
       language: 'typescript',
       riskDomains: ['authorization', 'authentication'],

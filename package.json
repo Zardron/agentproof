@@ -1,7 +1,7 @@
 {
   "name": "agentproof",
   "version": "0.1.0",
-  "description": "Verify AI-assisted code before it reaches production. AgentProof checks the code change, not who or what wrote it.",
+  "description": "Verify code changes before they reach production.",
   "type": "module",
   "license": "MIT",
   "bin": {
@@ -33,7 +33,6 @@
   "keywords": [
     "ci",
     "security",
-    "ai-code",
     "verification",
     "typescript",
     "github-actions"

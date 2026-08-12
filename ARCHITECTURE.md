@@ -1,10 +1,10 @@
 # Architecture
 
-AgentProof verifies a **code change** against project context and policy. It does not attempt to detect whether AI wrote the code.
+AgentProof verifies a **code change** against project context and policy.
 
 ## Principles
 
-- Deterministic core analysis (no AI API required)
+- Deterministic core analysis
 - Privacy-first: local-only; no telemetry by default
 - Framework-agnostic core with pluggable adapters
 - Evidence for every finding; low false-positive bias

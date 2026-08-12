@@ -1,5 +1,5 @@
 import { addedLines } from '../../git/diff-engine.js'
-import { isTestPath } from '../../git/classify.js'
+import { isNonProductionPath } from '../../git/classify.js'
 import type { Rule } from '../interface.js'
 import { makeFinding } from '../interface.js'
 
@@ -13,9 +13,10 @@ export const evalRule: Rule = {
   async run(ctx) {
     const findings = []
     for (const file of ctx.diff.files) {
-      if (isTestPath(file.path)) continue
+      if (isNonProductionPath(file.path)) continue
       if (!/\.[cm]?[jt]sx?$/.test(file.path)) continue
       for (const { line, content } of addedLines(file)) {
+        if (/^\s*(\/\/|\/\*|\*)/.test(content)) continue
         if (/\beval\s*\(/.test(content) || /\bnew\s+Function\s*\(/.test(content)) {
           findings.push(
             makeFinding(evalRule, {
@@ -43,7 +44,8 @@ export const childProcessRule: Rule = {
   async run(ctx) {
     const findings = []
     for (const file of ctx.diff.files) {
-      if (isTestPath(file.path)) continue
+      if (isNonProductionPath(file.path)) continue
+      if (!/\.[cm]?[jt]sx?$/.test(file.path)) continue
       for (const { line, content } of addedLines(file)) {
         const hit =
           /\b(?:exec|execSync|spawn|spawnSync|execFile|execFileSync)\s*\(/.test(content) ||
@@ -78,12 +80,13 @@ export const sqlConcatRule: Rule = {
   async run(ctx) {
     const findings = []
     for (const file of ctx.diff.files) {
-      if (isTestPath(file.path)) continue
+      if (isNonProductionPath(file.path)) continue
+      if (!/\.[cm]?[jt]sx?$/.test(file.path)) continue
       for (const { line, content } of addedLines(file)) {
         const sqly =
-          /(query|execute|raw|sql)\s*\(\s*[`'"].*\+|\$\{/.test(content) ||
-          /(['"`])\s*SELECT[\s\S]*\1\s*\+/.test(content) ||
-          /`\s*SELECT[\s\S]*\$\{/.test(content)
+          /\b(query|execute|\.raw|\bsql)\s*\(\s*[`'"][^`'"]*(\+|\$\{)/.test(content) ||
+          /(['"`])\s*(SELECT|INSERT|UPDATE|DELETE)\b[\s\S]*\1\s*\+/.test(content) ||
+          /`(SELECT|INSERT|UPDATE|DELETE)\b[\s\S]*\$\{/.test(content)
         if (sqly) {
           findings.push(
             makeFinding(sqlConcatRule, {
@@ -111,6 +114,7 @@ export const tlsInsecureRule: Rule = {
   async run(ctx) {
     const findings = []
     for (const file of ctx.diff.files) {
+      if (isNonProductionPath(file.path)) continue
       for (const { line, content } of addedLines(file)) {
         if (
           /rejectUnauthorized\s*:\s*false/.test(content) ||
@@ -142,6 +146,7 @@ export const corsStarRule: Rule = {
   async run(ctx) {
     const findings = []
     for (const file of ctx.diff.files) {
+      if (isNonProductionPath(file.path)) continue
       const content = file.currentContent || addedLines(file).map((l) => l.content).join('\n')
       const hasStar =
         /origin\s*:\s*['"`]\*['"`]/.test(content) ||
@@ -180,7 +185,7 @@ export const dangerousHtmlRule: Rule = {
   async run(ctx) {
     const findings = []
     for (const file of ctx.diff.files) {
-      if (isTestPath(file.path)) continue
+      if (isNonProductionPath(file.path)) continue
       for (const { line, content } of addedLines(file)) {
         if (
           /dangerouslySetInnerHTML/.test(content) ||

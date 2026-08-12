@@ -1,5 +1,5 @@
 name: AgentProof
-description: Verify AI-assisted code changes before merge — checks the change, not who wrote it.
+description: Verify code changes before merge.
 author: AgentProof
 branding:
   icon: shield

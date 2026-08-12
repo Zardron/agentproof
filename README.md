@@ -1,10 +1,8 @@
 # AgentProof
 
-**Verify AI-assisted code before it reaches production.**
+**Verify code changes before they reach production.**
 
-> **AgentProof checks the code change, not who or what wrote it.**
-
-AgentProof is a framework-aware, CI-friendly verification tool for teams using Cursor, Claude Code, GitHub Copilot, Codex, Windsurf, and similar agents. It evaluates the resulting diff objectively — typecheck, build, tests, secrets, dependency risk, and security regressions — then reports whether the change is safe to merge.
+AgentProof is a framework-aware, CI-friendly verification tool. It evaluates a git diff objectively — typecheck, build, tests, secrets, dependency risk, and security regressions — then reports whether the change is safe to merge.
 
 ## Quick start
 
@@ -21,9 +19,9 @@ npx agentproof --sarif
 | Audience | Use case |
 |----------|----------|
 | Individual developers | Catch secrets, auth regressions, and broken builds before opening a PR |
-| Startups / agencies | Enforce a shared merge bar without buying AI APIs |
+| Startups / agencies | Enforce a shared merge bar in CI |
 | Platform / security teams | Policy as code: protected paths, required checks, fail-on thresholds |
-| Engineering orgs | Deterministic CI gate for AI-assisted throughput |
+| Engineering orgs | Deterministic CI gate for pull requests |
 
 ## Supported ecosystem (Phase 1)
 
@@ -98,7 +96,7 @@ security:
 - Public and open source (MIT)
 - No telemetry by default
 - Never uploads source code
-- No paid AI API required
+- Runs entirely on the local machine / CI runner
 - Deterministic core analysis
 
 ## Rule methodology
