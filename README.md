@@ -7,41 +7,29 @@
 
 **Verify code changes before they reach production.**
 
-AgentProof is a CI-friendly verification CLI for **Node.js / JavaScript / TypeScript** projects.
+AgentProof is a local-first verification CLI for **Node.js / JavaScript / TypeScript** repositories. It reviews a git diff against project context and policy, then reports whether the change is safe to merge.
 
-It analyzes a **git diff** — not who wrote the code — and answers one question:
-
-> Is this change safe enough to merge?
-
-It does **not** try to detect AI-generated code. It evaluates the resulting change objectively: project checks, secrets, dependency risk, and high-confidence security regressions.
-
-📦 **npm:** [`agentproof-cli`](https://www.npmjs.com/package/agentproof-cli) · **CLI command:** `agentproof`
+Install from npm as [`agentproof-cli`](https://www.npmjs.com/package/agentproof-cli). The binary name is `agentproof`.
 
 ---
 
-## Why AgentProof?
+## Why this exists
 
-Modern PRs move fast. AgentProof gives teams a **deterministic merge gate** that:
+Pull requests fail for boring, expensive reasons: broken typechecks, missing tests on sensitive paths, leaked secrets, dependency surprises, and accidental auth regressions.
 
-- Runs the checks you already care about (typecheck, lint, tests, build)
-- Flags secrets and risky patterns with **evidence**
-- Detects **auth / authorization regressions** vs the base branch
-- Enforces policy as code (`fail_on`, protected paths, required checks)
-- Stays **local-first** — no source upload, no telemetry by default
+AgentProof packages those checks into one CI-friendly command with evidence-backed findings and an explicit merge status.
 
 ---
 
-## What it does
+## Pipeline
 
-On each run, AgentProof:
-
-1. **Detects** your project (language, package manager, frameworks, build/test/lint)
-2. **Computes** the git diff (`--staged`, `--base`, or a revision)
-3. **Classifies** changed files by risk (auth, payments, deps, migrations, …)
-4. **Runs checks** when available: typecheck, lint, tests, build, dependency review
-5. **Applies security rules** with evidence snippets
-6. **Scores** change risk + production readiness
-7. **Reports** merge status: `PASS` · `REVIEW` · `BLOCKED`
+1. Detect project tooling (package manager, frameworks, build/test/lint)
+2. Build the git diff (`--staged`, `--base`, or a revision)
+3. Classify changed files by risk domain
+4. Run available checks (typecheck, lint, tests, build, dependency review)
+5. Evaluate security rules with evidence snippets
+6. Score change risk and production readiness
+7. Emit `PASS` / `REVIEW` / `BLOCKED`
 
 ---
 
@@ -52,21 +40,16 @@ npm install -D agentproof-cli
 ```
 
 ```bash
-# Review local changes
 npx agentproof-cli
-
-# Gate a PR against main
 npx agentproof-cli --base main --ci
 ```
-
-Also works with `pnpm` / `yarn`:
 
 ```bash
 pnpm add -D agentproof-cli
 yarn add -D agentproof-cli
 ```
 
-> The npm name `agentproof` is a **different, unrelated** package. Install **`agentproof-cli`**. After install, the binary is still `agentproof`.
+> Note: the npm package `agentproof` is a different product. This project publishes **`agentproof-cli`**.
 
 ---
 
@@ -96,7 +79,7 @@ BLOCKED
 
 ---
 
-## Common commands
+## CLI
 
 ```bash
 agentproof --help
@@ -112,41 +95,38 @@ agentproof --skip-checks
 
 | Flag | Purpose |
 |------|---------|
-| `--base <ref>` | Compare against a branch/commit |
-| `--staged` | Only staged changes |
+| `--base <ref>` | Compare against a branch or commit |
+| `--staged` | Analyze staged changes only |
 | `--ci` | Exit `1` when blocked |
-| `--json` / `--sarif` / `--html` | Machine-readable or HTML report |
+| `--json` / `--sarif` / `--html` | Alternate report formats |
 | `--config <path>` | Policy file |
-| `--skip-checks` | Rules only (skip project checks) |
+| `--skip-checks` | Run rules without project checks |
 
-**Exit codes:** `0` pass/review · `1` blocked (with `--ci`) · `2` error
-
----
-
-## What gets checked
-
-### Project checks
-- Typecheck, lint, tests, build (when detected / required)
-- Lint defaults to **new issues only** (changed lines)
-- Dependency changes + optional OSV advisories (package name/version only)
-
-### Security rules (high signal)
-Secrets, `eval`, shell/SQL risks, open redirects, path traversal, unsafe writes, CORS/TLS/header issues, sensitive logging, and **auth/authz removals vs base**.
-
-Full catalog: [RULES.md](./RULES.md)
+Exit codes: `0` pass/review · `1` blocked (with `--ci`) · `2` error
 
 ---
 
-## Framework support
+## Coverage
 
-Works on **any Node/JS/TS git repo**. Dedicated detection for:
+### Checks
+- Typecheck, lint, tests, build (when detected and required)
+- Lint can fail only on issues introduced on changed lines
+- Dependency deltas + optional OSV advisories (package name/version only)
 
-**Backend:** Express · Fastify · Hono · NestJS · plain Node  
-**Apps:** React · Vite · Next.js · Remix · Astro · Nuxt · Vue · SvelteKit · Angular
+### Rules
+High-signal findings with evidence: secrets, unsafe eval/shell/SQL patterns, redirect and path risks, CORS/TLS/header issues, sensitive logging, and auth/authz removals versus the base branch.
 
-Other stacks still get checks + rules — just without framework-specific detection extras.
+See [RULES.md](./RULES.md).
 
-**Package managers:** npm · pnpm · Yarn · Bun
+### Framework detection
+Works on any Node/JS/TS git repo. Built-in detection for:
+
+- Backend: Express, Fastify, Hono, NestJS, plain Node
+- Apps: React, Vite, Next.js, Remix, Astro, Nuxt, Vue, SvelteKit, Angular
+
+Unsupported frameworks still get checks and rules; they just skip framework-specific detection helpers.
+
+Package managers: npm, pnpm, Yarn, Bun.
 
 ---
 
@@ -185,7 +165,7 @@ security:
 | Pack | Intent |
 |------|--------|
 | `ci` | Typical PR gate |
-| `security` | Secrets + auth regression |
+| `security` | Secrets + auth regression focus |
 | `strict` | Require build/tests/typecheck/lint |
 | `relaxed` | Block only on critical findings |
 
@@ -194,7 +174,7 @@ security:
 ## GitHub Action
 
 ```yaml
-- uses: Zardron/agentproof@v0.3.1
+- uses: Zardron/agentproof@v0.3.2
   with:
     base: origin/main
     fail-on: high
@@ -228,43 +208,41 @@ console.log(getVersion(), report.mergeStatus)
 process.exitCode = exitCode
 ```
 
-TypeScript types are included. No `@types` package needed.
+TypeScript declarations are included.
 
 ---
 
-## Privacy & trust
+## Privacy
 
-- MIT open source
+- MIT licensed
 - No telemetry by default
-- Never uploads source
-- OSV sends package name/version only
-- Runs on your machine / CI runner
+- Source is not uploaded
+- OSV queries send package name/version only
+- Runs on your machine or CI runner
 
 ---
 
 ## Requirements
 
-- Node.js **20+**
-- A **git** repository
-- Optional network for OSV advisories
+- Node.js 20+
+- Git repository
+- Network only if advisories are enabled
 
 ---
 
-## Documentation
+## Docs
 
-| Doc | Contents |
-|-----|----------|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | Pipeline design |
-| [RULES.md](./RULES.md) | Rule catalog |
-| [SECURITY.md](./SECURITY.md) | Vulnerability reporting |
-| [CONTRIBUTING.md](./CONTRIBUTING.md) | How to contribute |
-| [CHANGELOG.md](./CHANGELOG.md) | Release notes |
-| [ROADMAP.md](./ROADMAP.md) | What’s next |
+- [ARCHITECTURE.md](./ARCHITECTURE.md)
+- [RULES.md](./RULES.md)
+- [SECURITY.md](./SECURITY.md)
+- [CONTRIBUTING.md](./CONTRIBUTING.md)
+- [CHANGELOG.md](./CHANGELOG.md)
+- [ROADMAP.md](./ROADMAP.md)
 
-## Contributing
+## Maintainer
 
-PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md). Please follow the [Code of Conduct](./CODE_OF_CONDUCT.md).
+Maintained by [Zardron Pesquera](https://github.com/Zardron).
 
 ## License
 
-[MIT](./LICENSE) © Zardron Pesquera
+[MIT](./LICENSE)

@@ -101,6 +101,6 @@ describe('package manager detection', () => {
 
 describe('version', () => {
   it('reads the package version', () => {
-    expect(getVersion()).toBe('0.3.1')
+    expect(getVersion()).toBe('0.3.2')
   })
 })
