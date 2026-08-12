@@ -1,6 +1,6 @@
 {
   "name": "agentproof-cli",
-  "version": "0.3.3",
+  "version": "0.4.0",
   "description": "Verify code changes before they reach production — CI-friendly checks, secrets, and security regression detection.",
   "type": "module",
   "license": "MIT",

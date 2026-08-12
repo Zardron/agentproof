@@ -26,6 +26,7 @@ describe('CLI help', () => {
     const help = await execa('node', ['dist/cli/index.js', '--help'], { cwd: root })
     expect(help.stdout.toLowerCase()).toContain('agentproof')
     expect(help.stdout).toContain('--html')
+    expect(help.stdout).toContain('--verbose')
     void result
   })
 })
@@ -42,7 +43,7 @@ describe('pipeline JSON', () => {
     })
     expect(report.project.runtime).toBe('node')
     expect(output).toContain('"tool": "agentproof"')
-    expect(output).toContain('"version": "0.3.3"')
+    expect(output).toContain('"version": "0.4.0"')
   })
 })
 
@@ -186,5 +187,53 @@ describe('temp dir isolation', () => {
       skipChecks: true,
     })
     expect(report.mergeStatus).toMatch(/PASS|REVIEW|BLOCKED/)
+  })
+})
+
+describe('CLI progress vs machine output', () => {
+  it('keeps JSON stdout parseable and progress on stderr', async () => {
+    await execa('npm', ['run', 'build'], { cwd: root })
+    const result = await execa('node', ['dist/cli/index.js', '--json', '--skip-checks'], {
+      cwd: root,
+      env: { ...process.env, CI: 'true' },
+    })
+    const parsed = JSON.parse(result.stdout) as { tool: string }
+    expect(parsed.tool).toBe('agentproof')
+    expect(result.stderr).toContain('[AgentProof]')
+    expect(result.stderr).toContain('Detecting project')
+    expect(result.stdout).not.toContain('[AgentProof]')
+    expect(result.stdout).not.toContain('Detecting project')
+    expect(result.exitCode).toBe(0)
+  })
+
+  it('keeps SARIF stdout parseable', async () => {
+    await execa('npm', ['run', 'build'], { cwd: root })
+    const result = await execa('node', ['dist/cli/index.js', '--sarif', '--skip-checks'], {
+      cwd: root,
+      env: { ...process.env, CI: 'true' },
+    })
+    const parsed = JSON.parse(result.stdout) as { version: string; runs: unknown[] }
+    expect(parsed.version).toBe('2.1.0')
+    expect(Array.isArray(parsed.runs)).toBe(true)
+    expect(result.stdout).not.toContain('[AgentProof]')
+    expect(result.exitCode).toBe(0)
+  })
+
+  it('writes HTML and confirms the path on stderr', async () => {
+    await execa('npm', ['run', 'build'], { cwd: root })
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ap-cli-html-'))
+    const htmlPath = path.join(dir, 'out.html')
+    const result = await execa(
+      'node',
+      ['dist/cli/index.js', '--skip-checks', '--html', htmlPath],
+      {
+        cwd: root,
+        env: { ...process.env, CI: 'true' },
+      },
+    )
+    expect(fs.existsSync(htmlPath)).toBe(true)
+    expect(result.stderr).toContain('HTML report written to')
+    expect(result.stdout).toContain('MERGE STATUS')
+    expect(result.exitCode).toBe(0)
   })
 })
