@@ -27,7 +27,46 @@ describe('CLI help', () => {
     expect(help.stdout.toLowerCase()).toContain('agentproof')
     expect(help.stdout).toContain('--html')
     expect(help.stdout).toContain('--verbose')
+    expect(help.stdout).toContain('init')
     void result
+  })
+})
+
+describe('CLI init', () => {
+  it('writes a starter config and does not overwrite without --force', async () => {
+    await execa('npm', ['run', 'build'], { cwd: root })
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ap-cli-init-'))
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({ name: 'demo', devDependencies: { typescript: '5.8.0' } }),
+    )
+    fs.writeFileSync(path.join(dir, 'tsconfig.json'), '{}')
+
+    const created = await execa('node', ['dist/cli/index.js', 'init', '--cwd', dir], {
+      cwd: root,
+      env: { ...process.env, CI: 'true' },
+    })
+    expect(created.stdout).toContain('AgentProof Setup')
+    expect(created.stdout).toContain('Detected TypeScript')
+    expect(created.stdout).toContain('agentproof.config.ts')
+    expect(created.exitCode).toBe(0)
+    expect(fs.existsSync(path.join(dir, 'agentproof.config.ts'))).toBe(true)
+
+    const blocked = await execa('node', ['dist/cli/index.js', 'init', '--cwd', dir], {
+      cwd: root,
+      env: { ...process.env, CI: 'true' },
+      reject: false,
+    })
+    expect(blocked.exitCode).toBe(2)
+    expect(blocked.stderr).toContain('already exists')
+    expect(blocked.stderr).toContain('--force')
+
+    const forced = await execa('node', ['dist/cli/index.js', 'init', '--force', '--cwd', dir], {
+      cwd: root,
+      env: { ...process.env, CI: 'true' },
+    })
+    expect(forced.stdout).toContain('Updated:')
+    expect(forced.exitCode).toBe(0)
   })
 })
 

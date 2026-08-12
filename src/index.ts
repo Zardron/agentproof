@@ -14,8 +14,10 @@ export {
 } from './core/exit-codes.js'
 export { detectProject } from './detect/project.js'
 export { describeProject } from './detect/frameworks/index.js'
-export { loadPolicy, defaultPolicy, policySchema } from './policy/schema.js'
+export { loadPolicy, defaultPolicy, policySchema, CONFIG_SEARCH_PLACES } from './policy/schema.js'
 export type { Policy } from './policy/schema.js'
+export { runInit, InitAbortedError } from './init/run.js'
+export type { InitOptions, InitResult } from './init/run.js'
 export {
   listBuiltinPackNames,
   loadPack,
