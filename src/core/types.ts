@@ -134,7 +134,41 @@ export interface CliOptions {
   ci: boolean
   configPath?: string
   skipChecks: boolean
+  verbose?: boolean
+  onProgress?: ProgressCallback
 }
+
+export type ProgressStage =
+  | 'config'
+  | 'detect'
+  | 'diff'
+  | 'typecheck'
+  | 'lint'
+  | 'tests'
+  | 'build'
+  | 'dependencies'
+  | 'security'
+  | 'risk'
+  | 'report'
+  | 'html'
+
+export type ProgressStatus =
+  | 'running'
+  | 'passed'
+  | 'failed'
+  | 'skipped'
+  | 'warning'
+  | 'completed'
+
+export interface ProgressEvent {
+  stage: ProgressStage
+  status: ProgressStatus
+  message: string
+  detail?: string
+  durationMs?: number
+}
+
+export type ProgressCallback = (event: ProgressEvent) => void
 
 export interface ReportModel {
   project: ProjectModel

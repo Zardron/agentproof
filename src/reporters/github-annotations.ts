@@ -18,6 +18,7 @@ export function emitGithubAnnotations(findings: Finding[]): void {
     const line = f.line ? `line=${f.line}` : ''
     const title = `title=${escapeData(f.title)}`
     const props = [file, line, title].filter(Boolean).join(',')
-    console.log(`::${level} ${props}::${escapeData(f.message)}`)
+    // stderr keeps --json/--sarif stdout machine-readable; GitHub still parses workflow commands.
+    console.error(`::${level} ${props}::${escapeData(f.message)}`)
   }
 }

@@ -4,6 +4,7 @@
  */
 export { runPipeline } from './core/pipeline.js'
 export { getVersion } from './core/version.js'
+export { emitProgress, formatDuration } from './core/progress.js'
 export {
   EXIT_PASS,
   EXIT_REVIEW,
@@ -35,4 +36,8 @@ export type {
   ReportModel,
   RiskDomain,
   Severity,
+  ProgressCallback,
+  ProgressEvent,
+  ProgressStage,
+  ProgressStatus,
 } from './core/types.js'

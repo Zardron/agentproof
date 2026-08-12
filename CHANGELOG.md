@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0
+
+### Added
+
+- Live CLI progress for each pipeline stage (config, detect, diff, checks, security, risk, report)
+- Interactive spinner on TTY; stable `[AgentProof]` lines in CI / non-TTY
+- Progress is written to stderr so `--json` / `--sarif` stdout stays machine-readable
+- `--verbose` shows resolved check commands and config detail
+- Elapsed time on completed typecheck / lint / test / build stages
+
 ## 0.3.3
 
 ### Fixed
