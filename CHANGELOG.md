@@ -7,6 +7,11 @@
 - Incremental local cache for typecheck / lint / tests / build when inputs are unchanged
 - `--no-cache` and `agentproof cache clear`
 
+### Fixed
+
+- `--no-cache` no longer disables the cache by default (Commander negated-option default)
+- Incremental cache now applies to monorepo package checks, not only single-package repos
+
 ## 0.4.1
 
 ### Added

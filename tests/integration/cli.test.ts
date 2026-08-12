@@ -28,6 +28,7 @@ describe('CLI help', () => {
     expect(help.stdout).toContain('--html')
     expect(help.stdout).toContain('--verbose')
     expect(help.stdout).toContain('--no-cache')
+    expect(help.stdout).not.toMatch(/--no-cache[^\n]*default: false/)
     void result
   })
 })

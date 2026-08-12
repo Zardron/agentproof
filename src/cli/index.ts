@@ -2,9 +2,9 @@ import { Command } from 'commander'
 import { clearCheckCache } from '../cache/store.js'
 import { CACHE_DIR_NAME } from '../cache/fingerprint.js'
 import { runPipeline } from '../core/pipeline.js'
-import type { CliOptions } from '../core/types.js'
 import { EXIT_ERROR } from '../core/exit-codes.js'
 import { getVersion } from '../core/version.js'
+import { applyAnalyzeFlags, cliOptionsFromCommander } from './analyze-options.js'
 import { createProgressRenderer, isInteractiveProgress } from './progress-ui.js'
 
 async function main(): Promise<void> {
@@ -30,20 +30,8 @@ async function main(): Promise<void> {
       process.stdout.write(`${message}\n`)
     })
 
-  program
-    .argument('[revision]', 'Git revision to compare (e.g. HEAD~1)')
-    .option('--staged', 'Analyze staged changes only', false)
-    .option('--base <ref>', 'Base branch or commit (e.g. main)')
-    .option('--json', 'Emit JSON report', false)
-    .option('--sarif', 'Emit SARIF report', false)
-    .option('--html [path]', 'Write a local HTML report', false)
-    .option('--ci', 'CI mode (exit 1 when blocked)', false)
-    .option('--config <path>', 'Path to agentproof config')
-    .option('--cwd <path>', 'Working directory', process.cwd())
-    .option('--skip-checks', 'Skip typecheck/lint/test/build (rules only)', false)
-    .option('--verbose', 'Show commands, config, and extra progress detail', false)
-    .option('--no-cache', 'Disable the incremental check cache', false)
-    .action(async (revision: string | undefined, opts) => {
+  applyAnalyzeFlags(program.argument('[revision]', 'Git revision to compare (e.g. HEAD~1)')).action(
+    async (revision: string | undefined, opts) => {
       const json = Boolean(opts.json)
       const sarif = Boolean(opts.sarif)
       const ci = Boolean(opts.ci)
@@ -59,26 +47,7 @@ async function main(): Promise<void> {
         stream: process.stderr,
       })
 
-      const options: CliOptions = {
-        cwd: opts.cwd,
-        base: opts.base,
-        revision,
-        staged: Boolean(opts.staged),
-        json,
-        sarif,
-        html:
-          opts.html === true
-            ? 'agentproof-report.html'
-            : typeof opts.html === 'string'
-              ? opts.html
-              : undefined,
-        ci,
-        configPath: opts.config,
-        skipChecks: Boolean(opts.skipChecks),
-        verbose: Boolean(opts.verbose),
-        noCache: Boolean(opts.noCache) || opts.cache === false,
-        onProgress: (event) => renderer.handle(event),
-      }
+      const options = cliOptionsFromCommander(revision, opts, (event) => renderer.handle(event))
 
       const onSigint = () => {
         renderer.stop()
@@ -103,7 +72,8 @@ async function main(): Promise<void> {
         process.off('SIGINT', onSigint)
         process.off('exit', onExit)
       }
-    })
+    },
+  )
 
   await program.parseAsync(process.argv)
 }
