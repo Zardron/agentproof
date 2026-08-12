@@ -1,0 +1,19 @@
+name: AgentProof Self-Check
+
+on:
+  pull_request:
+
+jobs:
+  agentproof:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci && npm run build
+      - name: Dogfood AgentProof
+        run: node dist/cli/index.js --base origin/${{ github.base_ref }} --ci --skip-checks
+        # skip-checks in dogfood avoids recursively running the full suite inside the gate
