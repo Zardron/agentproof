@@ -385,6 +385,8 @@ on:
 jobs:
   agentproof:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -395,7 +397,9 @@ jobs:
           fail-on: high
 ```
 
-The Action installs `agentproof-cli`, always runs with `--ci`, and emits GitHub annotations for findings. Pin the Action tag to a [release](https://github.com/Zardron/agentproof/releases) that matches the CLI version you want.
+The Action installs `agentproof-cli`, always runs with `--ci`, and emits GitHub annotations for findings (errors/warnings/notices on changed files when line data exists). Annotations use GitHub workflow commands on stderr — no hosted AgentProof backend and no `checks: write` token. At most 20 inline annotations are emitted; extra findings are summarized. Pin the Action tag to a [release](https://github.com/Zardron/agentproof/releases) that matches the CLI version you want.
+
+`permissions.contents: read` is enough for checkout plus workflow-command annotations. Do not pass secrets into the logs; AgentProof does not print evidence snippets as annotations.
 
 Optional inputs (from `action.yml`):
 

@@ -178,7 +178,7 @@ export async function runPipeline(options: CliOptions): Promise<{
     })
 
     if (options.ci || project.ci.provider === 'github') {
-      emitGithubAnnotations(findings)
+      emitGithubAnnotations(findings, { mergeStatus })
     }
 
     const exitCode = exitCodeForMergeStatus(mergeStatus, options.ci)

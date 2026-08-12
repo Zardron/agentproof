@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- GitHub Actions pull-request annotations are capped, severity-ranked, and summarized so PRs are not flooded
+- Workflow examples document `contents: read` (no extra token or hosted backend)
+
 ## 0.4.1
 
 ### Added
