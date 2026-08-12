@@ -12,7 +12,7 @@ Tracked work for AgentProof.
 - [x] Git diff engine + risk domain classifier
 - [x] Checks: typecheck, lint, tests, build, dependencies
 - [x] Policy engine (`fail_on`, protected areas, require.*, dependency policy)
-- [x] 12 high-value rules (secrets, security, auth regression, deps, untested sensitive)
+- [x] High-value rules (secrets, security, auth regression, deps, untested sensitive; expanded in 0.2.1)
 - [x] Scoring + merge status
 - [x] Reporters: terminal, JSON, SARIF, GitHub annotations
 - [x] GitHub Action (`action.yml`)
@@ -26,6 +26,7 @@ Tracked work for AgentProof.
 - [x] OSV advisory enrichment for dependency findings
 - [x] TypeScript config loading (`agentproof.config.ts`)
 - [x] Version bump required on every PR
+- [x] Additional high-value security rules (redirect, path traversal, file write, headers, sensitive logging)
 - [ ] Diff-aware lint “new issues only” via baseline
 - [ ] Team policy packs (shareable YAML)
 

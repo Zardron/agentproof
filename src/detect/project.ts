@@ -5,6 +5,7 @@ import { detectCiProvider } from '../ci/detect.js'
 import {
   collectEnvPrefixes,
   detectFrameworks,
+  suggestBuildFromAdapters,
 } from './frameworks/index.js'
 import { detectMonorepo } from './monorepo.js'
 import { detectPackageManager, runWithPm } from './package-manager.js'
@@ -119,26 +120,12 @@ function detectBuild(
   pm: ProjectModel['packageManager'],
 ): ProjectModel['build'] {
   const scripts = (pkg.scripts as Record<string, string> | undefined) ?? {}
-  if (scripts.build) {
-    const tool =
-      frameworks.includes('nextjs')
-        ? 'next'
-        : frameworks.includes('nuxt')
-          ? 'nuxt'
-          : frameworks.includes('nestjs')
-            ? 'nestjs'
-            : frameworks.includes('vite')
-              ? 'vite'
-              : frameworks.includes('astro')
-                ? 'astro'
-                : frameworks.includes('sveltekit')
-                  ? 'sveltekit'
-                  : frameworks.includes('angular')
-                    ? 'angular'
-                    : frameworks.includes('remix')
-                      ? 'remix'
-                      : 'script'
-    return { command: runWithPm(pm, 'run build'), tool }
+  const suggested = suggestBuildFromAdapters(frameworks, scripts)
+  if (suggested) {
+    return {
+      command: runWithPm(pm, `run ${suggested.command}`),
+      tool: suggested.tool,
+    }
   }
   if (fs.existsSync(path.join(root, 'tsconfig.json'))) {
     return { command: 'npx tsc -p tsconfig.json', tool: 'typescript' }

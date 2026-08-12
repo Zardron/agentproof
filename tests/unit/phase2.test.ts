@@ -2,13 +2,24 @@ import { describe, expect, it, vi, afterEach } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { detectFrameworks } from '../../src/detect/frameworks/index.js'
-import { affectedPackages, detectMonorepo, listWorkspacePackages } from '../../src/detect/monorepo.js'
+import { detectFrameworks, suggestBuildFromAdapters } from '../../src/detect/frameworks/index.js'
+import {
+  affectedPackages,
+  detectMonorepo,
+  listWorkspacePackages,
+  packageFilterCommand,
+} from '../../src/detect/monorepo.js'
+import {
+  resolveWorkspaceScript,
+  resolveWorkspaceTypecheck,
+} from '../../src/detect/workspace-project.js'
 import { formatHtml } from '../../src/reporters/html.js'
 import { loadPolicy } from '../../src/policy/schema.js'
 import { fetchAdvisoryFindings } from '../../src/checks/advisories.js'
+import { dependencyFindingInputs, runDependencyCheck } from '../../src/checks/dependencies.js'
 import { parseArgs } from '../../src/cli/args.js'
-import type { ReportModel } from '../../src/core/types.js'
+import { detectProject } from '../../src/detect/project.js'
+import type { ProjectModel, ReportModel } from '../../src/core/types.js'
 
 describe('extra framework adapters', () => {
   it('detects Fastify, Hono, Nuxt, Astro, SvelteKit, Angular, Vue, and Remix', () => {
@@ -20,6 +31,31 @@ describe('extra framework adapters', () => {
     expect(detectFrameworks({ dependencies: { '@angular/core': '19.0.0' } }, new Set(['angular.json']))).toContain('angular')
     expect(detectFrameworks({ dependencies: { vue: '3.0.0' } }, new Set())).toContain('vue')
     expect(detectFrameworks({ dependencies: { '@remix-run/node': '2.0.0' } }, new Set())).toContain('remix')
+  })
+
+  it('suggestBuild returns null when no build script exists', () => {
+    expect(suggestBuildFromAdapters(['nextjs'], {})).toBeNull()
+    expect(suggestBuildFromAdapters(['nextjs'], { build: 'next build' })).toEqual({
+      command: 'build',
+      tool: 'next',
+    })
+  })
+
+  it('wires suggestBuild into detectProject', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ap-fw-'))
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({
+        name: 'app',
+        dependencies: { next: '15.0.0' },
+        scripts: { build: 'next build' },
+      }),
+    )
+    fs.writeFileSync(path.join(dir, 'next.config.js'), 'module.exports = {}')
+    const project = detectProject(dir)
+    expect(project.frameworks).toContain('nextjs')
+    expect(project.build.tool).toBe('next')
+    expect(project.build.command).toContain('build')
   })
 })
 
@@ -60,6 +96,90 @@ describe('monorepo targeting', () => {
       packages,
     )
     expect(affected.map((p) => p.name)).toEqual(['api'])
+  })
+
+  it('resolves per-package scripts via workspace filters', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ap-mono-cmd-'))
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({ name: 'root', workspaces: ['packages/*'] }),
+    )
+    fs.mkdirSync(path.join(dir, 'packages', 'api'), { recursive: true })
+    fs.writeFileSync(
+      path.join(dir, 'packages', 'api', 'package.json'),
+      JSON.stringify({
+        name: 'api',
+        scripts: { test: 'vitest', build: 'tsc', lint: 'eslint .', typecheck: 'tsc -p .' },
+      }),
+    )
+    fs.writeFileSync(path.join(dir, 'packages', 'api', 'tsconfig.json'), '{}')
+
+    const project: ProjectModel = {
+      root: dir,
+      runtime: 'node',
+      language: 'typescript',
+      packageManager: 'npm',
+      frameworks: ['node'],
+      build: { command: null, tool: null },
+      test: { command: null, runner: null },
+      lint: { command: null, tool: null },
+      orm: 'none',
+      monorepo: { kind: 'pnpm', packages: ['packages/api'] },
+      ci: { provider: 'none' },
+      envPrefixes: [],
+      packageJsonScripts: {},
+    }
+    const pkg = listWorkspacePackages(dir)[0]!
+    expect(resolveWorkspaceTypecheck(project, pkg)).toContain('-w')
+    expect(resolveWorkspaceScript(project, pkg, 'test')).toBe(
+      packageFilterCommand('npm', 'test', 'api'),
+    )
+    expect(resolveWorkspaceScript(project, pkg, 'build')).toContain('build')
+    expect(resolveWorkspaceScript(project, pkg, 'lint')).toContain('lint')
+  })
+
+  it('reads dependency changes from workspace package.json', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ap-mono-deps-'))
+    fs.mkdirSync(path.join(dir, 'packages', 'api'), { recursive: true })
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({ name: 'root', workspaces: ['packages/*'], dependencies: {} }),
+    )
+    fs.writeFileSync(
+      path.join(dir, 'packages', 'api', 'package.json'),
+      JSON.stringify({
+        name: 'api',
+        dependencies: { lodash: '^4.17.21', 'left-pad': '1.0.0' },
+      }),
+    )
+
+    const project = detectProject(dir)
+    const diff = {
+      baseRef: 'base',
+      headRef: 'head',
+      staged: false,
+      files: [
+        {
+          path: 'packages/api/package.json',
+          status: 'M' as const,
+          language: 'json' as const,
+          riskDomains: ['dependencies' as const],
+          hunks: [],
+          baseContent: JSON.stringify({
+            name: 'api',
+            dependencies: { lodash: '^4.17.20' },
+          }),
+          currentContent: '',
+        },
+      ],
+    }
+
+    const inputs = dependencyFindingInputs(project, diff)
+    expect(inputs.added.some((a) => a.name === 'left-pad')).toBe(true)
+    expect(inputs.majors).toHaveLength(0)
+
+    const check = await runDependencyCheck(project, diff)
+    expect(check.summary).toContain('added')
   })
 })
 

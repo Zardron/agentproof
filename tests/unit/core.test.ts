@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyPath, isTestPath } from '../../src/git/classify.js'
+import { classifyPath, isNonProductionPath, isTestPath } from '../../src/git/classify.js'
 import { computeChangeRisk, computeReadiness, escalateSeverity } from '../../src/core/scoring.js'
 import { applyPolicyToFindings, evaluateMergeStatus } from '../../src/policy/engine.js'
 import { defaultPolicy } from '../../src/policy/schema.js'
@@ -21,6 +21,12 @@ describe('classifyPath', () => {
     expect(isTestPath('src/foo.test.ts')).toBe(true)
     expect(isTestPath('src/foo.ts')).toBe(false)
     expect(isTestPath('fixtures/vulnerable/src/bad.ts')).toBe(true)
+  })
+
+  it('skips scripts and rule sources as non-production', () => {
+    expect(isNonProductionPath('scripts/check-version-bump.mjs')).toBe(true)
+    expect(isNonProductionPath('src/rules/security/index.ts')).toBe(true)
+    expect(isNonProductionPath('src/cli/index.ts')).toBe(false)
   })
 })
 
@@ -95,6 +101,6 @@ describe('package manager detection', () => {
 
 describe('version', () => {
   it('reads the package version', () => {
-    expect(getVersion()).toBe('0.2.0')
+    expect(getVersion()).toBe('0.2.1')
   })
 })

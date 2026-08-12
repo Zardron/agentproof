@@ -19,7 +19,21 @@ function scriptBuild(
   scripts: Record<string, string>,
   tool: string,
 ): { command: string; tool: string } | null {
-  return scripts.build ? { command: 'build', tool } : { command: 'build', tool }
+  return scripts.build ? { command: 'build', tool } : null
+}
+
+export function suggestBuildFromAdapters(
+  frameworks: FrameworkId[],
+  scripts: Record<string, string>,
+): { command: string; tool: string } | null {
+  for (const id of frameworks) {
+    if (id === 'node') continue
+    const adapter = adapters.find((a) => a.id === id)
+    const suggested = adapter?.suggestBuild(scripts)
+    if (suggested) return suggested
+  }
+  const node = adapters.find((a) => a.id === 'node')
+  return node?.suggestBuild(scripts) ?? null
 }
 
 export const nodeAdapter: FrameworkAdapter = {

@@ -184,4 +184,73 @@ describe('security rules', () => {
     const hit = findings.find((f) => f.ruleId === 'sec.authz_check_removed')
     expect(hit?.confidence).toBe('needs_review')
   })
+
+  it('flags open redirect, path traversal, unsafe write, and sensitive logging', async () => {
+    const findings = await runRules({
+      project: baseProject(),
+      policy: defaultPolicy,
+      diff: diffWith([
+        file({
+          path: 'src/http.ts',
+          hunks: [
+            {
+              oldStart: 1,
+              newStart: 1,
+              lines: [
+                {
+                  type: 'add',
+                  content: 'res.redirect(req.query.next)',
+                  newLineNumber: 2,
+                },
+                {
+                  type: 'add',
+                  content: "fs.readFileSync(path.join('/data', req.params.file))",
+                  newLineNumber: 3,
+                },
+                {
+                  type: 'add',
+                  content: 'fs.writeFileSync(path.join("/t", req.params.name), req.body)',
+                  newLineNumber: 4,
+                },
+                {
+                  type: 'add',
+                  content: "console.log('token', token)",
+                  newLineNumber: 5,
+                },
+              ],
+            },
+          ],
+        }),
+      ]),
+    })
+    const ids = new Set(findings.map((f) => f.ruleId))
+    expect(ids.has('sec.open_redirect')).toBe(true)
+    expect(ids.has('sec.path_traversal')).toBe(true)
+    expect(ids.has('sec.unsafe_file_write')).toBe(true)
+    expect(ids.has('sec.sensitive_logging')).toBe(true)
+  })
+
+  it('flags removed helmet middleware', async () => {
+    const findings = await runRules({
+      project: baseProject(),
+      policy: defaultPolicy,
+      diff: diffWith([
+        file({
+          path: 'src/app.ts',
+          baseContent: "import helmet from 'helmet'\napp.use(helmet())\n",
+          currentContent: "import express from 'express'\n",
+          hunks: [
+            {
+              oldStart: 1,
+              newStart: 1,
+              lines: [
+                { type: 'del', content: 'app.use(helmet())', oldLineNumber: 2 },
+              ],
+            },
+          ],
+        }),
+      ]),
+    })
+    expect(findings.some((f) => f.ruleId === 'sec.headers_weakened')).toBe(true)
+  })
 })

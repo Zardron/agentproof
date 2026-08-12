@@ -9,6 +9,10 @@ import {
 } from '../adapters/commands.js'
 import { runDependencyCheck } from './dependencies.js'
 import { affectedPackages, listWorkspacePackages } from '../detect/monorepo.js'
+import {
+  resolveWorkspaceScript,
+  resolveWorkspaceTypecheck,
+} from '../detect/workspace-project.js'
 
 async function runCommand(
   id: string,
@@ -66,6 +70,51 @@ async function runCommand(
   }
 }
 
+function skippedChecks(): CheckResult[] {
+  return [
+    {
+      id: 'typecheck',
+      title: 'Typecheck',
+      status: 'skipped',
+      summary: 'Skipped (--skip-checks)',
+    },
+    {
+      id: 'lint',
+      title: 'Lint',
+      status: 'skipped',
+      summary: 'Skipped (--skip-checks)',
+    },
+    {
+      id: 'tests',
+      title: 'Tests',
+      status: 'skipped',
+      summary: 'Skipped (--skip-checks)',
+    },
+    {
+      id: 'build',
+      title: 'Build',
+      status: 'skipped',
+      summary: 'Skipped (--skip-checks)',
+    },
+    {
+      id: 'dependencies',
+      title: 'Dependencies',
+      status: 'skipped',
+      summary: 'Skipped (--skip-checks)',
+    },
+  ]
+}
+
+function aggregateStatus(
+  results: CheckResult[],
+): 'passed' | 'failed' | 'skipped' {
+  if (results.some((r) => r.status === 'failed')) return 'failed'
+  if (results.length === 0 || results.every((r) => r.status === 'skipped')) {
+    return 'skipped'
+  }
+  return 'passed'
+}
+
 export async function runChecks(options: {
   project: ProjectModel
   policy: Policy
@@ -73,16 +122,7 @@ export async function runChecks(options: {
   skipChecks: boolean
 }): Promise<CheckResult[]> {
   const { project, policy, diff, skipChecks } = options
-  if (skipChecks) {
-    return [
-      {
-        id: 'typecheck',
-        title: 'Typecheck',
-        status: 'skipped',
-        summary: 'Skipped (--skip-checks)',
-      },
-    ]
-  }
+  if (skipChecks) return skippedChecks()
 
   const packages = listWorkspacePackages(project.root)
   const affected = affectedPackages(diff, packages)
@@ -90,79 +130,127 @@ export async function runChecks(options: {
     project.monorepo.kind !== 'none' && affected.length > 0 ? affected : null
 
   if (targets) {
-    const checks: CheckResult[] = []
-    let typeFailed = 0
-    let testFailed = 0
-    let buildFailed = 0
+    const typeResults: CheckResult[] = []
+    const lintResults: CheckResult[] = []
+    const testResults: CheckResult[] = []
+    const buildResults: CheckResult[] = []
+
     for (const pkg of targets) {
-      const typeCmd = resolveTypecheckCommand({
-        ...project,
-        root: pkg.dir,
-      })
-      const type = await runCommand(
-        `typecheck:${pkg.name}`,
-        `Typecheck (${pkg.name})`,
-        typeCmd,
-        pkg.dir,
-        Boolean(typeCmd) && policy.require.typecheck,
+      const typeCmd = resolveWorkspaceTypecheck(project, pkg)
+      typeResults.push(
+        await runCommand(
+          `typecheck:${pkg.name}`,
+          `Typecheck (${pkg.name})`,
+          typeCmd,
+          project.root,
+          Boolean(typeCmd) && policy.require.typecheck,
+        ),
       )
-      if (type.status === 'failed') typeFailed += 1
-      const testCmd = resolveTestCommand({ ...project, root: pkg.dir })
-      const tests = await runCommand(
-        `tests:${pkg.name}`,
-        `Tests (${pkg.name})`,
-        testCmd,
-        pkg.dir,
-        Boolean(testCmd) && policy.require.tests,
-        180_000,
+
+      const lintCmd = resolveWorkspaceScript(project, pkg, 'lint')
+      lintResults.push(
+        await runCommand(
+          `lint:${pkg.name}`,
+          `Lint (${pkg.name})`,
+          lintCmd,
+          project.root,
+          Boolean(lintCmd) && policy.require.lint,
+        ),
       )
-      if (tests.status === 'failed') testFailed += 1
-      const buildCmd = resolveBuildCommand({ ...project, root: pkg.dir })
-      const build = await runCommand(
-        `build:${pkg.name}`,
-        `Build (${pkg.name})`,
-        buildCmd,
-        pkg.dir,
-        Boolean(buildCmd) && policy.require.build,
-        180_000,
+
+      const testCmd = resolveWorkspaceScript(project, pkg, 'test')
+      testResults.push(
+        await runCommand(
+          `tests:${pkg.name}`,
+          `Tests (${pkg.name})`,
+          testCmd,
+          project.root,
+          Boolean(testCmd) && policy.require.tests,
+          180_000,
+        ),
       )
-      if (build.status === 'failed') buildFailed += 1
+
+      const buildCmd = resolveWorkspaceScript(project, pkg, 'build')
+      buildResults.push(
+        await runCommand(
+          `build:${pkg.name}`,
+          `Build (${pkg.name})`,
+          buildCmd,
+          project.root,
+          Boolean(buildCmd) && policy.require.build,
+          180_000,
+        ),
+      )
     }
 
-    checks.push({
-      id: 'typecheck',
-      title: 'Typecheck',
-      status: typeFailed > 0 ? 'failed' : 'passed',
-      summary: `${targets.length - typeFailed}/${targets.length} packages`,
-    })
-    checks.push(
-      await runCommand(
-        'lint',
-        'Lint',
-        resolveLintCommand(project),
-        project.root,
-        policy.require.lint,
-      ),
-    )
-    checks.push({
-      id: 'tests',
-      title: 'Tests',
-      status: testFailed > 0 ? 'failed' : 'passed',
-      summary: `${targets.length - testFailed}/${targets.length} packages`,
-    })
-    checks.push({
-      id: 'build',
-      title: 'Build',
-      status: buildFailed > 0 ? 'failed' : 'passed',
-      summary: `${targets.length - buildFailed}/${targets.length} packages`,
-    })
-    checks.push(await runDependencyCheck(project, diff))
-    return checks
+    // Fall back to root lint when no affected package defines lint.
+    if (lintResults.every((r) => r.status === 'skipped') && resolveLintCommand(project)) {
+      lintResults.length = 0
+      lintResults.push(
+        await runCommand(
+          'lint',
+          'Lint',
+          resolveLintCommand(project),
+          project.root,
+          policy.require.lint,
+        ),
+      )
+    }
+
+    const typeStatus = aggregateStatus(typeResults)
+    const lintStatus = aggregateStatus(lintResults)
+    const testStatus = aggregateStatus(testResults)
+    const buildStatus = aggregateStatus(buildResults)
+
+    return [
+      {
+        id: 'typecheck',
+        title: 'Typecheck',
+        status: typeStatus,
+        summary: `${typeResults.filter((r) => r.status === 'passed').length}/${targets.length} packages`,
+        details: typeResults
+          .filter((r) => r.status === 'failed')
+          .map((r) => `${r.title}: ${r.summary}`)
+          .join('\n') || undefined,
+      },
+      {
+        id: 'lint',
+        title: 'Lint',
+        status: lintStatus,
+        summary:
+          lintResults.length === 1 && lintResults[0]?.id === 'lint'
+            ? lintResults[0].summary
+            : `${lintResults.filter((r) => r.status === 'passed').length}/${lintResults.length} packages`,
+        details: lintResults
+          .filter((r) => r.status === 'failed')
+          .map((r) => `${r.title}: ${r.summary}`)
+          .join('\n') || undefined,
+      },
+      {
+        id: 'tests',
+        title: 'Tests',
+        status: testStatus,
+        summary: `${testResults.filter((r) => r.status === 'passed').length}/${targets.length} packages`,
+        details: testResults
+          .filter((r) => r.status === 'failed')
+          .map((r) => `${r.title}: ${r.summary}`)
+          .join('\n') || undefined,
+      },
+      {
+        id: 'build',
+        title: 'Build',
+        status: buildStatus,
+        summary: `${buildResults.filter((r) => r.status === 'passed').length}/${targets.length} packages`,
+        details: buildResults
+          .filter((r) => r.status === 'failed')
+          .map((r) => `${r.title}: ${r.summary}`)
+          .join('\n') || undefined,
+      },
+      await runDependencyCheck(project, diff),
+    ]
   }
 
-  const checks: CheckResult[] = []
-
-  checks.push(
+  return [
     await runCommand(
       'typecheck',
       'Typecheck',
@@ -170,9 +258,6 @@ export async function runChecks(options: {
       project.root,
       policy.require.typecheck,
     ),
-  )
-
-  checks.push(
     await runCommand(
       'lint',
       'Lint',
@@ -180,9 +265,6 @@ export async function runChecks(options: {
       project.root,
       policy.require.lint,
     ),
-  )
-
-  checks.push(
     await runCommand(
       'tests',
       'Tests',
@@ -191,9 +273,6 @@ export async function runChecks(options: {
       policy.require.tests,
       180_000,
     ),
-  )
-
-  checks.push(
     await runCommand(
       'build',
       'Build',
@@ -202,9 +281,6 @@ export async function runChecks(options: {
       policy.require.build,
       180_000,
     ),
-  )
-
-  checks.push(await runDependencyCheck(project, diff))
-
-  return checks
+    await runDependencyCheck(project, diff),
+  ]
 }

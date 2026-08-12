@@ -105,8 +105,9 @@ export function packageFilterCommand(
   script: string,
   pkgName: string,
 ): string {
-  if (pm === 'pnpm') return `pnpm --filter ${pkgName} ${script}`
-  if (pm === 'yarn') return `yarn workspace ${pkgName} ${script}`
-  if (pm === 'bun') return `bun run --filter ${pkgName} ${script}`
-  return runWithPm(pm, `run ${script} -w ${pkgName}`)
+  const quoted = /[@\s!]/.test(pkgName) ? JSON.stringify(pkgName) : pkgName
+  if (pm === 'pnpm') return `pnpm --filter ${quoted} ${script}`
+  if (pm === 'yarn') return `yarn workspace ${quoted} ${script}`
+  if (pm === 'bun') return `bun run --filter ${quoted} ${script}`
+  return runWithPm(pm, `run ${script} -w ${quoted}`)
 }

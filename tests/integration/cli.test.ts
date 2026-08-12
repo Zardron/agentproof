@@ -42,7 +42,7 @@ describe('pipeline JSON', () => {
     })
     expect(report.project.runtime).toBe('node')
     expect(output).toContain('"tool": "agentproof"')
-    expect(output).toContain('"version": "0.2.0"')
+    expect(output).toContain('"version": "0.2.1"')
   })
 })
 
@@ -107,9 +107,14 @@ describe('vulnerable fixture rules', () => {
 
     const ids = new Set(findings.map((f) => f.ruleId))
     expect(ids.has('sec.eval')).toBe(true)
+    expect(ids.has('sec.child_process')).toBe(true)
     expect(ids.has('sec.tls_insecure')).toBe(true)
     expect(ids.has('sec.cors_star')).toBe(true)
     expect(ids.has('secret.hardcoded')).toBe(true)
+    expect(ids.has('sec.open_redirect')).toBe(true)
+    expect(ids.has('sec.path_traversal')).toBe(true)
+    expect(ids.has('sec.unsafe_file_write')).toBe(true)
+    expect(ids.has('sec.sensitive_logging')).toBe(true)
     expect(ids.has('sec.authz_check_removed')).toBe(true)
   })
 })

@@ -21,9 +21,11 @@ CLI args
   → run checks (typecheck, lint, tests, build, dependencies)
   → run rules (secrets, security, auth regression)
   → score + apply policy thresholds
-  → report (terminal | JSON | SARIF | GitHub annotations)
+  → report (terminal | JSON | SARIF | HTML | GitHub annotations)
   → exit code
 ```
+
+Advisories (`dep.advisory`) enrich dependency findings via OSV after dependency analysis. Monorepo runs resolve per-package scripts with workspace filters.
 
 ## Normalized models
 

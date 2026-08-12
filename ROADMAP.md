@@ -1,8 +1,8 @@
 # Roadmap
 
-## Now (0.2)
+## Now (0.2.x)
 
-Ship broader framework coverage, monorepo-aware checks, HTML reports, TypeScript config, and OSV advisory enrichment — while keeping analysis local-first.
+Ship broader framework coverage, monorepo-aware checks, HTML reports, TypeScript config, OSV advisory enrichment, and additional high-value security rules — while keeping analysis local-first.
 
 ## Next
 
