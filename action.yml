@@ -1,6 +1,6 @@
 name: AgentProof
 description: Verify code changes before merge.
-author: AgentProof
+author: Zardron Pesquera
 branding:
   icon: shield
   color: blue
@@ -26,6 +26,10 @@ inputs:
     description: Skip typecheck/lint/test/build and run rules only
     required: false
     default: 'false'
+  version:
+    description: Optional agentproof-cli version to install from npm (default reads action package.json)
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -35,13 +39,30 @@ runs:
       with:
         node-version: '20'
 
-    - name: Install AgentProof from action package
+    - name: Install AgentProof
       shell: bash
       run: |
-        cd "${{ github.action_path }}"
-        npm install --omit=dev
-        npm run build
-        npm install -g .
+        set -euo pipefail
+        ACTION_DIR="${{ github.action_path }}"
+        VERSION_INPUT="${{ inputs.version }}"
+        if [ -n "$VERSION_INPUT" ]; then
+          PKG_VERSION="$VERSION_INPUT"
+        else
+          PKG_VERSION="$(node -p "require('${ACTION_DIR}/package.json').version")"
+        fi
+
+        # Prefer published package; fall back to building this action checkout (pre-publish / forks).
+        if npm install -g "agentproof-cli@${PKG_VERSION}" >/tmp/agentproof-npm-install.log 2>&1; then
+          echo "Installed agentproof-cli@${PKG_VERSION} from npm"
+        else
+          echo "npm install failed; building from action source"
+          cat /tmp/agentproof-npm-install.log || true
+          cd "$ACTION_DIR"
+          npm install --omit=dev
+          npm run build
+          npm install -g .
+        fi
+        agentproof --version
 
     - name: Resolve config
       shell: bash
@@ -51,6 +72,7 @@ runs:
           echo "CONFIG_FILE=${{ inputs.config }}" >> "$GITHUB_ENV"
         else
           printf '%s\n' \
+            "extends: ci" \
             "fail_on: ${{ inputs.fail-on }}" \
             "require:" \
             "  typecheck: true" \

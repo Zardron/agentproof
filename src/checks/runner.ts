@@ -8,6 +8,7 @@ import {
   resolveTypecheckCommand,
 } from '../adapters/commands.js'
 import { runDependencyCheck } from './dependencies.js'
+import { runLintCheck } from './lint.js'
 import { affectedPackages, listWorkspacePackages } from '../detect/monorepo.js'
 import {
   resolveWorkspaceScript,
@@ -149,13 +150,14 @@ export async function runChecks(options: {
 
       const lintCmd = resolveWorkspaceScript(project, pkg, 'lint')
       lintResults.push(
-        await runCommand(
-          `lint:${pkg.name}`,
-          `Lint (${pkg.name})`,
-          lintCmd,
-          project.root,
-          Boolean(lintCmd) && policy.require.lint,
-        ),
+        await runLintCheck({
+          command: lintCmd,
+          cwd: project.root,
+          required: Boolean(lintCmd) && policy.require.lint,
+          diff,
+          newIssuesOnly: policy.lint.new_issues_only,
+          runCommand,
+        }),
       )
 
       const testCmd = resolveWorkspaceScript(project, pkg, 'test')
@@ -187,13 +189,14 @@ export async function runChecks(options: {
     if (lintResults.every((r) => r.status === 'skipped') && resolveLintCommand(project)) {
       lintResults.length = 0
       lintResults.push(
-        await runCommand(
-          'lint',
-          'Lint',
-          resolveLintCommand(project),
-          project.root,
-          policy.require.lint,
-        ),
+        await runLintCheck({
+          command: resolveLintCommand(project),
+          cwd: project.root,
+          required: policy.require.lint,
+          diff,
+          newIssuesOnly: policy.lint.new_issues_only,
+          runCommand,
+        }),
       )
     }
 
@@ -258,13 +261,14 @@ export async function runChecks(options: {
       project.root,
       policy.require.typecheck,
     ),
-    await runCommand(
-      'lint',
-      'Lint',
-      resolveLintCommand(project),
-      project.root,
-      policy.require.lint,
-    ),
+    await runLintCheck({
+      command: resolveLintCommand(project),
+      cwd: project.root,
+      required: policy.require.lint,
+      diff,
+      newIssuesOnly: policy.lint.new_issues_only,
+      runCommand,
+    }),
     await runCommand(
       'tests',
       'Tests',

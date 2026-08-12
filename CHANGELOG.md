@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0
+
+### Added
+
+- Diff-aware lint filtering (`lint.new_issues_only`, default `true`) — only issues on changed lines fail the lint check
+- Shareable policy packs via `extends` (`strict`, `security`, `relaxed`, `ci`, or a local YAML/JSON path)
+- Built-in pack files under `packs/`
+- Public library entry for programmatic `runPipeline` usage
+- GitHub Action prefers `npm install -g agentproof-cli@<version>` with source-build fallback
+
+### Changed
+
+- npm package name is **`agentproof-cli`** (the name `agentproof` on npm is a different package)
+- Repository metadata points to `https://github.com/Zardron/agentproof`
+
 ## 0.2.1
 
 ### Fixed

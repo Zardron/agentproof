@@ -27,8 +27,8 @@ Tracked work for AgentProof.
 - [x] TypeScript config loading (`agentproof.config.ts`)
 - [x] Version bump required on every PR
 - [x] Additional high-value security rules (redirect, path traversal, file write, headers, sensitive logging)
-- [ ] Diff-aware lint “new issues only” via baseline
-- [ ] Team policy packs (shareable YAML)
+- [x] Diff-aware lint “new issues only” via changed-line filtering
+- [x] Team policy packs (shareable YAML / built-ins via `extends`)
 
 ## Phase 3
 

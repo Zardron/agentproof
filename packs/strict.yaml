@@ -1,0 +1,15 @@
+# Built-in pack: strict CI gate
+fail_on: high
+require:
+  build: true
+  tests: true
+  typecheck: true
+  lint: true
+dependencies:
+  new_dependency: review
+  advisories: true
+security:
+  secret_detection: true
+  auth_regression: true
+lint:
+  new_issues_only: true

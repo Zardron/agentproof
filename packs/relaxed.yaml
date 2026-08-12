@@ -1,0 +1,13 @@
+# Built-in pack: only block on critical findings
+fail_on: critical
+require:
+  typecheck: false
+  build: false
+  tests: false
+  lint: false
+dependencies:
+  new_dependency: warn
+  advisories: true
+security:
+  secret_detection: true
+  auth_regression: true

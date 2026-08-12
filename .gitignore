@@ -2,7 +2,10 @@ node_modules
 dist
 coverage
 *.log
+*.tgz
 .DS_Store
 .env
-agentproof-report.html
+.env.*
 !.env.example
+agentproof-report.html
+npm-package-test/
