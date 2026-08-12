@@ -114,7 +114,7 @@ function detectLint(
 }
 
 function detectBuild(
-  root: string,
+  _root: string,
   pkg: Record<string, unknown>,
   frameworks: ProjectModel['frameworks'],
   pm: ProjectModel['packageManager'],
@@ -127,9 +127,13 @@ function detectBuild(
       tool: suggested.tool,
     }
   }
-  if (fs.existsSync(path.join(root, 'tsconfig.json'))) {
-    return { command: 'npx tsc -p tsconfig.json', tool: 'typescript' }
+  if (scripts.build) {
+    return {
+      command: runWithPm(pm, 'run build'),
+      tool: 'custom',
+    }
   }
+  // Do not invent a build via bare `tsc` — only claim build when a script/adapter exists.
   return { command: null, tool: null }
 }
 
@@ -142,11 +146,6 @@ export function detectProject(root: string): ProjectModel {
   const language = detectLanguage(root, files)
 
   const build = detectBuild(root, pkg, frameworks, pm)
-  // Prefer explicit build script; otherwise leave TypeScript fallback from detectBuild.
-  if (!scripts.build && language === 'typescript' && fs.existsSync(path.join(root, 'tsconfig.json'))) {
-    build.command = 'npx tsc -p tsconfig.json'
-    build.tool = 'typescript'
-  }
 
   return {
     root,

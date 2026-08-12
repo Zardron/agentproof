@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.3
+
+### Fixed
+
+- `--ci` now gates exit code `1` on `BLOCKED` (local runs stay exit `0` and still report status)
+- `dependencies.new_dependency: allow` no longer forces `REVIEW` / `BLOCKED` for `dep.new_package`
+- OSV advisory network/HTTP failures emit a `needs_review` warning instead of failing open silently
+- Build is no longer claimed via bare `tsc` when `scripts.build` is missing
+- Monorepo kind labeling for npm/yarn/bun workspaces; Nx/Turbo fall back to `apps`/`packages`/`libs` layout discovery
+- GitHub Action `fail-on` still applies when a custom `config` input is set (overlay extends)
+
 ## 0.3.2
 
 ### Changed

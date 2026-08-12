@@ -174,7 +174,7 @@ security:
 ## GitHub Action
 
 ```yaml
-- uses: Zardron/agentproof@v0.3.2
+- uses: Zardron/agentproof@v0.3.3
   with:
     base: origin/main
     fail-on: high

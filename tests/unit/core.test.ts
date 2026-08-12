@@ -6,6 +6,7 @@ import { defaultPolicy } from '../../src/policy/schema.js'
 import type { CheckResult, Finding } from '../../src/core/types.js'
 import { detectPackageManager } from '../../src/detect/package-manager.js'
 import { getVersion } from '../../src/core/version.js'
+import { exitCodeForMergeStatus } from '../../src/core/exit-codes.js'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -91,6 +92,41 @@ describe('policy engine', () => {
     })
     expect(filtered).toHaveLength(0)
   })
+
+  it('honors dependencies.new_dependency allow', () => {
+    const findings: Finding[] = [
+      {
+        id: 'dep-1',
+        ruleId: 'dep.new_package',
+        title: 'Dependency change',
+        severity: 'high',
+        confidence: 'high',
+        message: 'New dependency added: left-pad@1.0.0',
+        evidence: {},
+        category: 'dependencies',
+      },
+    ]
+    const allowed = evaluateMergeStatus(findings, [], {
+      ...defaultPolicy,
+      dependencies: { ...defaultPolicy.dependencies, new_dependency: 'allow' },
+    })
+    expect(allowed.status).toBe('PASS')
+
+    const blocked = evaluateMergeStatus(findings, [], {
+      ...defaultPolicy,
+      dependencies: { ...defaultPolicy.dependencies, new_dependency: 'block' },
+    })
+    expect(blocked.status).toBe('BLOCKED')
+  })
+})
+
+describe('exit codes', () => {
+  it('only exits 1 for BLOCKED when --ci is set', () => {
+    expect(exitCodeForMergeStatus('BLOCKED', false)).toBe(0)
+    expect(exitCodeForMergeStatus('BLOCKED', true)).toBe(1)
+    expect(exitCodeForMergeStatus('REVIEW', true)).toBe(0)
+    expect(exitCodeForMergeStatus('PASS', false)).toBe(0)
+  })
 })
 
 describe('package manager detection', () => {
@@ -101,6 +137,6 @@ describe('package manager detection', () => {
 
 describe('version', () => {
   it('reads the package version', () => {
-    expect(getVersion()).toBe('0.3.2')
+    expect(getVersion()).toBe('0.3.3')
   })
 })

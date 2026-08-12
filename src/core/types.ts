@@ -53,7 +53,10 @@ export interface ProjectModel {
   }
   lint: { command: string | null; tool: 'eslint' | 'biome' | null }
   orm: 'prisma' | 'drizzle' | 'typeorm' | 'none'
-  monorepo: { kind: 'pnpm' | 'nx' | 'turbo' | 'none'; packages: string[] }
+  monorepo: {
+    kind: 'npm' | 'pnpm' | 'yarn' | 'bun' | 'nx' | 'turbo' | 'none'
+    packages: string[]
+  }
   ci: { provider: 'github' | 'gitlab' | 'other' | 'none' }
   envPrefixes: string[]
   packageJsonScripts: Record<string, string>

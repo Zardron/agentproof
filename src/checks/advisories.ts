@@ -55,6 +55,27 @@ export async function fetchAdvisoryFindings(
     version: pkg.version,
   }))
 
+  const unavailable = (reason: string): Finding[] => [
+    {
+      id: 'dep.advisory-unavailable',
+      ruleId: 'dep.advisory',
+      title: 'Advisory lookup failed',
+      category: 'dependencies',
+      severity: 'medium',
+      confidence: 'needs_review',
+      message: `OSV advisory lookup failed (${reason}); dependency advisories were not checked.`,
+      file: 'package.json',
+      evidence: {
+        currentSnippet: queries
+          .map((q) => `${q.package.name}@${q.version}`)
+          .slice(0, 5)
+          .join(', '),
+      },
+      remediation:
+        'Re-run with network access, or set dependencies.advisories: false to skip OSV intentionally.',
+    },
+  ]
+
   try {
     const response = await fetch('https://api.osv.dev/v1/querybatch', {
       method: 'POST',
@@ -62,7 +83,9 @@ export async function fetchAdvisoryFindings(
       body: JSON.stringify({ queries }),
       signal: AbortSignal.timeout(15_000),
     })
-    if (!response.ok) return []
+    if (!response.ok) {
+      return unavailable(`HTTP ${response.status}`)
+    }
     const body = (await response.json()) as {
       results?: Array<{ vulns?: OsvVuln[] }>
     }
@@ -87,7 +110,8 @@ export async function fetchAdvisoryFindings(
       }
     })
     return findings
-  } catch {
-    return []
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : 'network error'
+    return unavailable(reason)
   }
 }

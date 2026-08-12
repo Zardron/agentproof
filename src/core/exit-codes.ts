@@ -7,7 +7,7 @@ export function exitCodeForMergeStatus(
   status: 'PASS' | 'REVIEW' | 'BLOCKED',
   ci: boolean,
 ): number {
-  if (status === 'BLOCKED') return EXIT_BLOCKED
-  if (status === 'REVIEW' && ci) return EXIT_PASS
+  // Local runs report BLOCKED without failing the process; --ci opts into exit 1.
+  if (status === 'BLOCKED' && ci) return EXIT_BLOCKED
   return EXIT_PASS
 }

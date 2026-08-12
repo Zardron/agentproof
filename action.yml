@@ -68,20 +68,26 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
+        FAIL_ON="${{ inputs.fail-on }}"
         if [ -n "${{ inputs.config }}" ]; then
-          echo "CONFIG_FILE=${{ inputs.config }}" >> "$GITHUB_ENV"
+          USER_CONFIG="${{ inputs.config }}"
+          # Overlay fail-on on top of the user config so the Action input always applies.
+          {
+            printf 'extends: %s\n' "$USER_CONFIG"
+            printf 'fail_on: %s\n' "$FAIL_ON"
+          } > /tmp/agentproof.ci.yaml
         else
           printf '%s\n' \
             "extends: ci" \
-            "fail_on: ${{ inputs.fail-on }}" \
+            "fail_on: ${FAIL_ON}" \
             "require:" \
             "  typecheck: true" \
             "security:" \
             "  secret_detection: true" \
             "  auth_regression: true" \
             > /tmp/agentproof.ci.yaml
-          echo "CONFIG_FILE=/tmp/agentproof.ci.yaml" >> "$GITHUB_ENV"
         fi
+        echo "CONFIG_FILE=/tmp/agentproof.ci.yaml" >> "$GITHUB_ENV"
 
     - name: Run AgentProof
       shell: bash

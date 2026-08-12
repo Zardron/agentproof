@@ -22,7 +22,7 @@ AgentProof ships high-value rules with confidence levels: `confirmed` · `high` 
 | `sec.auth_middleware_removed` | Auth middleware/guard removed vs base | critical | confirmed / high |
 | `sec.authz_check_removed` | Authorization check removed vs base | critical | confirmed / high |
 | `dep.new_package` | New package / major bump / git\|tarball / lifecycle scripts | medium–high | high |
-| `dep.advisory` | Known vulnerability from OSV for changed dependencies | medium–critical | high |
+| `dep.advisory` | Known vulnerability from OSV for changed dependencies (or advisory lookup failed) | medium–critical | high / needs_review |
 | `risk.untested_sensitive` | High-risk paths changed without test changes | medium | needs_review |
 
 ## Check signals (not rules)

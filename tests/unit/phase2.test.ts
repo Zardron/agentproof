@@ -57,6 +57,18 @@ describe('extra framework adapters', () => {
     expect(project.build.tool).toBe('next')
     expect(project.build.command).toContain('build')
   })
+
+  it('does not claim build from bare tsconfig without scripts.build', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ap-nobuild-'))
+    fs.writeFileSync(
+      path.join(dir, 'package.json'),
+      JSON.stringify({ name: 'lib', scripts: { typecheck: 'tsc --noEmit' } }),
+    )
+    fs.writeFileSync(path.join(dir, 'tsconfig.json'), '{}')
+    const project = detectProject(dir)
+    expect(project.build.command).toBeNull()
+    expect(project.build.tool).toBeNull()
+  })
 })
 
 describe('monorepo targeting', () => {
@@ -73,7 +85,7 @@ describe('monorepo targeting', () => {
 
     const files = new Set(fs.readdirSync(dir))
     const shape = detectMonorepo(dir, files)
-    expect(shape.kind).not.toBe('none')
+    expect(shape.kind).toBe('npm')
     const packages = listWorkspacePackages(dir)
     expect(packages.map((p) => p.name).sort()).toEqual(['api', 'web'])
     const affected = affectedPackages(
@@ -96,6 +108,20 @@ describe('monorepo targeting', () => {
       packages,
     )
     expect(affected.map((p) => p.name)).toEqual(['api'])
+  })
+
+  it('discovers Nx layout packages without workspace globs', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ap-nx-'))
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'root' }))
+    fs.writeFileSync(path.join(dir, 'nx.json'), '{}')
+    fs.mkdirSync(path.join(dir, 'apps', 'web'), { recursive: true })
+    fs.writeFileSync(
+      path.join(dir, 'apps', 'web', 'package.json'),
+      JSON.stringify({ name: 'web' }),
+    )
+    const shape = detectMonorepo(dir, new Set(fs.readdirSync(dir)))
+    expect(shape.kind).toBe('nx')
+    expect(shape.packages).toEqual(['apps/web'])
   })
 
   it('resolves per-package scripts via workspace filters', () => {
@@ -280,6 +306,25 @@ describe('OSV advisories', () => {
   it('skips when disabled', async () => {
     const findings = await fetchAdvisoryFindings([{ name: 'lodash', version: '4.17.21' }], false)
     expect(findings).toHaveLength(0)
+  })
+
+  it('emits a review finding when OSV request fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        status: 503,
+        json: async () => ({}),
+      })),
+    )
+    const findings = await fetchAdvisoryFindings(
+      [{ name: 'lodash', version: '4.17.21' }],
+      true,
+    )
+    expect(findings).toHaveLength(1)
+    expect(findings[0]?.ruleId).toBe('dep.advisory')
+    expect(findings[0]?.confidence).toBe('needs_review')
+    expect(findings[0]?.message).toContain('OSV advisory lookup failed')
   })
 })
 

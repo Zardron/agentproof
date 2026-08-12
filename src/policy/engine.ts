@@ -56,8 +56,13 @@ export function evaluateMergeStatus(
     }
   }
 
+  const depPolicy = policy.dependencies.new_dependency
+  const isAllowedDep = (finding: Finding) =>
+    finding.ruleId === 'dep.new_package' && depPolicy === 'allow'
+
   let hasReview = false
   for (const finding of findings) {
+    if (isAllowedDep(finding)) continue
     if (policy.fail_on !== 'none' && severityRank(finding.severity) >= threshold) {
       if (
         finding.confidence === 'needs_review' &&
@@ -75,19 +80,13 @@ export function evaluateMergeStatus(
     }
   }
 
-  // dependency policy block
+  // dependency policy block / review (allow: findings ignored above)
   for (const finding of findings) {
-    if (
-      finding.ruleId === 'dep.new_package' &&
-      policy.dependencies.new_dependency === 'block'
-    ) {
+    if (finding.ruleId !== 'dep.new_package') continue
+    if (depPolicy === 'allow') continue
+    if (depPolicy === 'block') {
       reasons.push(`Dependency policy block: ${finding.message}`)
-    }
-    if (
-      finding.ruleId === 'dep.new_package' &&
-      (policy.dependencies.new_dependency === 'review' ||
-        policy.dependencies.new_dependency === 'warn')
-    ) {
+    } else if (depPolicy === 'review' || depPolicy === 'warn') {
       hasReview = true
     }
   }

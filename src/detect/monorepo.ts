@@ -69,19 +69,63 @@ export function listWorkspacePackages(root: string): WorkspacePackage[] {
   return out
 }
 
-export function detectMonorepo(root: string, files: Set<string>): ProjectModel['monorepo'] {
-  const packages = listWorkspacePackages(root)
-  if (files.has('pnpm-workspace.yaml')) {
-    return { kind: 'pnpm', packages: packages.map((p) => p.relativeDir) }
+/** Fallback for Nx/Turbo repos that omit npm/pnpm workspace globs. */
+function listLayoutPackages(root: string): WorkspacePackage[] {
+  const out: WorkspacePackage[] = []
+  for (const parent of ['apps', 'packages', 'libs']) {
+    const parentDir = path.join(root, parent)
+    if (!fs.existsSync(parentDir)) continue
+    for (const entry of fs.readdirSync(parentDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue
+      const dir = path.join(parentDir, entry.name)
+      const pkgPath = path.join(dir, 'package.json')
+      if (!fs.existsSync(pkgPath)) continue
+      const pkg = readJson(pkgPath)
+      const relativeDir = path.relative(root, dir).split(path.sep).join('/')
+      out.push({
+        name: typeof pkg.name === 'string' ? pkg.name : relativeDir,
+        dir,
+        relativeDir,
+      })
+    }
   }
+  return out
+}
+
+function inferWorkspaceKind(
+  root: string,
+  files: Set<string>,
+): Exclude<ProjectModel['monorepo']['kind'], 'none' | 'nx' | 'turbo'> {
+  if (files.has('pnpm-workspace.yaml') || files.has('pnpm-lock.yaml')) return 'pnpm'
+  if (files.has('yarn.lock')) return 'yarn'
+  if (files.has('bun.lock') || files.has('bun.lockb')) return 'bun'
+  if (fs.existsSync(path.join(root, 'package-lock.json'))) return 'npm'
+  return 'npm'
+}
+
+export function detectMonorepo(root: string, files: Set<string>): ProjectModel['monorepo'] {
+  let packages = listWorkspacePackages(root)
+  if (
+    packages.length === 0 &&
+    (files.has('nx.json') || files.has('turbo.json'))
+  ) {
+    packages = listLayoutPackages(root)
+  }
+
+  const packageList = packages.map((p) => p.relativeDir)
+
+  // Tooling markers win for labeling; package discovery still uses workspace globs / layout.
   if (files.has('nx.json')) {
-    return { kind: 'nx', packages: packages.map((p) => p.relativeDir) }
+    return { kind: 'nx', packages: packageList }
   }
   if (files.has('turbo.json')) {
-    return { kind: 'turbo', packages: packages.map((p) => p.relativeDir) }
+    return { kind: 'turbo', packages: packageList }
   }
-  if (packages.length > 0) {
-    return { kind: 'pnpm', packages: packages.map((p) => p.relativeDir) }
+  if (files.has('pnpm-workspace.yaml')) {
+    return { kind: 'pnpm', packages: packageList }
+  }
+  if (packageList.length > 0) {
+    return { kind: inferWorkspaceKind(root, files), packages: packageList }
   }
   return { kind: 'none', packages: [] }
 }

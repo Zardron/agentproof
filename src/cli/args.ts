@@ -25,8 +25,7 @@ export function parseArgs(argv: string[]): CliOptions {
       } else {
         opts.html = 'agentproof-report.html'
       }
-    }
-    else if (a === '--base') {
+    } else if (a === '--base') {
       opts.base = argv[++i]
     } else if (a === '--config') {
       opts.configPath = argv[++i]
@@ -41,12 +40,6 @@ export function parseArgs(argv: string[]): CliOptions {
 
   if (rest[0] && !opts.base && !opts.staged) {
     opts.revision = rest[0]
-  }
-
-  if (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true') {
-    if (!argv.includes('--ci') && !argv.includes('--no-ci')) {
-      // leave ci false unless --ci; users opt in for blocking behavior docs
-    }
   }
 
   return opts

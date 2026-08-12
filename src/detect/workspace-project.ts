@@ -37,12 +37,7 @@ export function resolveWorkspaceScript(
   script: 'build' | 'test' | 'lint',
 ): string | null {
   const scripts = packageScripts(pkg.dir)
-  if (!scripts[script]) {
-    if (script === 'build' && fs.existsSync(path.join(pkg.dir, 'tsconfig.json'))) {
-      return `npx tsc -p ${JSON.stringify(path.join(pkg.relativeDir, 'tsconfig.json'))}`
-    }
-    return null
-  }
+  if (!scripts[script]) return null
   return packageFilterCommand(rootProject.packageManager, script, pkg.name)
 }
 
