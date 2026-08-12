@@ -29,6 +29,21 @@ Published package name: **`agentproof-cli`** (CLI binary: `agentproof`).
 3. Update `RULES.md` / `CHANGELOG.md` when user-visible.
 4. **Bump the version** in `package.json` on every PR (`patch` for fixes, `minor` for features) and add a `CHANGELOG.md` entry. CI fails if the version is not greater than the base branch.
 
+## Publishing
+
+Merges to `main` that introduce a version not yet on npm are published automatically by [`.github/workflows/publish.yml`](./.github/workflows/publish.yml):
+
+1. `npm publish` of **`agentproof-cli`** (public, with provenance)
+2. Git tag `v<version>`
+3. GitHub Release
+
+Configure one of:
+
+- **npm trusted publishing** for this GitHub repo / `publish.yml` workflow (preferred; uses OIDC, no long-lived token)
+- Repository secret **`NPM_TOKEN`** (classic automation token with publish rights)
+
+Do not publish from pull requests. The workflow only runs on `main`.
+
 ## Code of conduct
 
 See [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).

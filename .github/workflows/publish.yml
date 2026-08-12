@@ -1,0 +1,65 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: publish-npm
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'Zardron/agentproof'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      - name: Publish to npm, tag, and GitHub Release
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          NAME="$(node -p "require('./package.json').name")"
+          VERSION="$(node -p "require('./package.json').version")"
+          TAG="v${VERSION}"
+
+          if npm view "${NAME}@${VERSION}" version >/dev/null 2>&1; then
+            echo "Already published ${NAME}@${VERSION}"
+          else
+            echo "Publishing ${NAME}@${VERSION}"
+            npm publish --access public --provenance
+          fi
+
+          git fetch origin --tags
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Git tag ${TAG} already exists"
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "GitHub Release ${TAG} already exists"
+          else
+            NOTES="$(awk '/^## /{c++; if(c==2) exit} c==1' CHANGELOG.md)"
+            gh release create "$TAG" --title "$TAG" --notes "$NOTES"
+          fi

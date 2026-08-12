@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1
+
+### Added
+
+- GitHub Actions workflow to publish `agentproof-cli` to npm, create `v*` tags, and open a GitHub Release when `main` gets a new version
+
 ## 0.4.0
 
 ### Added
