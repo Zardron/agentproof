@@ -2,7 +2,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { CliOptions, ProgressCallback, ReportModel } from './types.js'
 import { detectProject } from '../detect/project.js'
-import { describeProject } from '../detect/frameworks/index.js'
 import { computeDiff } from '../git/diff-engine.js'
 import { loadPolicy } from '../policy/schema.js'
 import { applyPolicyToFindings, evaluateMergeStatus } from '../policy/engine.js'
@@ -19,10 +18,10 @@ import { fetchAdvisoryFindings } from '../checks/advisories.js'
 import { dependencyFindingInputs } from '../checks/dependencies.js'
 import {
   STAGE_FAILURE_LABEL,
-  diffCompletedMessage,
   diffRunningMessage,
   emitProgress,
-  fileCountLabel,
+  gitChangesDetectedMessage,
+  projectDetectedMessage,
   type ProgressStage,
 } from './progress.js'
 
@@ -64,7 +63,7 @@ export async function runPipeline(options: CliOptions): Promise<{
     emitProgress(onProgress, {
       stage: 'detect',
       status: 'completed',
-      message: `Detected ${describeProject(project)}`,
+      message: projectDetectedMessage(project),
     })
 
     emitProgress(onProgress, {
@@ -81,8 +80,7 @@ export async function runPipeline(options: CliOptions): Promise<{
     emitProgress(onProgress, {
       stage: 'diff',
       status: 'completed',
-      message: diffCompletedMessage(options),
-      detail: fileCountLabel(diff.files.length),
+      message: gitChangesDetectedMessage(diff.files.length),
     })
 
     const checks = await runChecks({
@@ -97,7 +95,7 @@ export async function runPipeline(options: CliOptions): Promise<{
     emitProgress(onProgress, {
       stage: 'security',
       status: 'running',
-      message: 'Running security analysis...',
+      message: 'Running security checks...',
     })
     let findings = await runRules({ project, policy, diff })
     const depInfo = dependencyFindingInputs(project, diff)
@@ -112,13 +110,13 @@ export async function runPipeline(options: CliOptions): Promise<{
     emitProgress(onProgress, {
       stage: 'security',
       status: 'completed',
-      message: 'Security analysis complete',
+      message: 'Security checks complete',
     })
 
     emitProgress(onProgress, {
       stage: 'risk',
       status: 'running',
-      message: 'Calculating risk...',
+      message: 'Calculating production readiness...',
     })
     const domains = diff.files.flatMap((f) => f.riskDomains)
     const changeRisk = computeChangeRisk(domains, findings)
@@ -131,7 +129,7 @@ export async function runPipeline(options: CliOptions): Promise<{
     emitProgress(onProgress, {
       stage: 'risk',
       status: 'completed',
-      message: 'Risk analysis complete',
+      message: 'Production readiness calculated',
     })
 
     const report: ReportModel = {

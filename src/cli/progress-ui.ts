@@ -25,6 +25,7 @@ function icon(status: ProgressStatus): string {
   if (status === 'passed' || status === 'completed') return chalk.green('✓')
   if (status === 'failed') return chalk.red('✗')
   if (status === 'warning') return chalk.yellow('⚠')
+  if (status === 'skipped') return chalk.gray('-')
   return chalk.gray('·')
 }
 
@@ -128,8 +129,12 @@ export function createProgressRenderer(options: {
         return
       }
       clearSpinner()
-      if (options.interactive) write(formatInteractiveDone(event))
-      else write(formatCiLine(event))
+      if (options.interactive) {
+        write(formatInteractiveDone(event))
+        if (event.stage === 'diff') write('')
+      } else {
+        write(formatCiLine(event))
+      }
     },
     fail(stage: ProgressStage, err: unknown) {
       if (!enabled) return
@@ -147,5 +152,25 @@ export function createProgressRenderer(options: {
     stop() {
       clearSpinner()
     },
+  }
+}
+
+export function attachProgressCleanup(
+  renderer: ProgressRenderer,
+  processRef: Pick<NodeJS.Process, 'on' | 'off' | 'exit'> = process,
+): () => void {
+  const onSigint = () => {
+    renderer.stop()
+    processRef.exit(130)
+  }
+  const onExit = () => {
+    renderer.stop()
+  }
+  processRef.on('SIGINT', onSigint)
+  processRef.on('exit', onExit)
+  return () => {
+    renderer.stop()
+    processRef.off('SIGINT', onSigint)
+    processRef.off('exit', onExit)
   }
 }

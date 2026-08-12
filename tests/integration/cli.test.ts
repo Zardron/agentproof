@@ -201,8 +201,11 @@ describe('CLI progress vs machine output', () => {
     expect(parsed.tool).toBe('agentproof')
     expect(result.stderr).toContain('[AgentProof]')
     expect(result.stderr).toContain('Detecting project')
+    expect(result.stderr).toContain('Project detected:')
+    expect(result.stderr).not.toContain('Loading configuration')
     expect(result.stdout).not.toContain('[AgentProof]')
     expect(result.stdout).not.toContain('Detecting project')
+    expect(result.stdout).not.toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/)
     expect(result.exitCode).toBe(0)
   })
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import os from 'node:os'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -7,11 +7,16 @@ import { runPipeline } from '../../src/core/pipeline.js'
 import {
   eventFromCheck,
   fileCountLabel,
+  formatDetectedStack,
   formatDuration,
+  gitChangesDetectedMessage,
   messageForCheck,
+  projectDetectedMessage,
+  shouldDisplayProgressEvent,
 } from '../../src/core/progress.js'
 import type { CheckResult, ProgressEvent } from '../../src/core/types.js'
 import {
+  attachProgressCleanup,
   createProgressRenderer,
   formatCiLine,
   formatInteractiveDone,
@@ -63,9 +68,73 @@ describe('progress helpers', () => {
     expect(messageForCheck('Typecheck', passed)).toBe('Typecheck passed')
     expect(messageForCheck('Lint', failed)).toBe('Lint failed')
     expect(messageForCheck('Tests', skipped)).toBe('Tests not configured')
+    expect(
+      messageForCheck('Dependencies', {
+        id: 'dependencies',
+        title: 'Dependencies',
+        status: 'passed',
+        summary: 'Passed',
+      }),
+    ).toBe('Dependency analysis complete')
     expect(eventFromCheck('typecheck', 'Typecheck', passed).status).toBe('passed')
     expect(fileCountLabel(1)).toBe('1 changed file')
     expect(fileCountLabel(24)).toBe('24 changed files')
+    expect(gitChangesDetectedMessage(1)).toBe('Git changes detected: 1 file')
+    expect(gitChangesDetectedMessage(24)).toBe('Git changes detected: 24 files')
+  })
+
+  it('formats detected stacks without implied libraries for app frameworks', () => {
+    expect(
+      formatDetectedStack({
+        frameworks: ['nextjs', 'react'],
+        language: 'typescript',
+        packageManager: 'npm',
+      }),
+    ).toBe('Next.js + TypeScript + npm')
+    expect(
+      projectDetectedMessage({
+        frameworks: ['express'],
+        language: 'javascript',
+        packageManager: 'pnpm',
+      }),
+    ).toBe('Project detected: Express + JavaScript + pnpm')
+  })
+
+  it('hides fast config/report stages unless verbose or failed', () => {
+    expect(
+      shouldDisplayProgressEvent({
+        stage: 'config',
+        status: 'running',
+        message: 'Loading configuration...',
+      }),
+    ).toBe(false)
+    expect(
+      shouldDisplayProgressEvent({
+        stage: 'report',
+        status: 'completed',
+        message: 'Report generated',
+      }),
+    ).toBe(false)
+    expect(
+      shouldDisplayProgressEvent(
+        { stage: 'config', status: 'running', message: 'Loading configuration...' },
+        { verbose: true },
+      ),
+    ).toBe(true)
+    expect(
+      shouldDisplayProgressEvent({
+        stage: 'config',
+        status: 'failed',
+        message: 'Failed while loading configuration',
+      }),
+    ).toBe(true)
+    expect(
+      shouldDisplayProgressEvent({
+        stage: 'typecheck',
+        status: 'running',
+        message: 'Running typecheck...',
+      }),
+    ).toBe(true)
   })
 })
 
@@ -135,6 +204,7 @@ describe('progress renderer', () => {
     expect(formatInteractiveDone(passed)).toContain('Typecheck passed (3.2s)')
     expect(formatInteractiveDone(failed)).toContain('Lint failed')
     expect(formatInteractiveDone(skipped)).toContain('Tests not configured')
+    expect(formatInteractiveDone(skipped)).toContain('-')
     expect(formatCiLine({ stage: 'detect', status: 'running', message: 'Detecting project...' })).toBe(
       '[AgentProof] Detecting project...',
     )
@@ -152,14 +222,88 @@ describe('progress renderer', () => {
     renderer.handle({
       stage: 'detect',
       status: 'completed',
-      message: 'Detected Node.js + TypeScript + npm',
+      message: 'Project detected: Node.js + TypeScript + npm',
     })
     renderer.stop()
     renderer.stop()
     expect(written).toContain('[AgentProof] AgentProof 0.4.0')
     expect(written).toContain('[AgentProof] Detecting project...')
-    expect(written).toContain('[AgentProof] Detected Node.js + TypeScript + npm')
+    expect(written).toContain('[AgentProof] Project detected: Node.js + TypeScript + npm')
     expect(written).not.toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/)
+  })
+
+  it('spins on TTY running events and restores the cursor on completion', () => {
+    vi.useFakeTimers()
+    let written = ''
+    const renderer = createProgressRenderer({
+      interactive: true,
+      stream: {
+        write: (chunk: string) => {
+          written += chunk
+          return true
+        },
+      } as NodeJS.WritableStream,
+    })
+    renderer.handle({
+      stage: 'typecheck',
+      status: 'running',
+      message: 'Running typecheck...',
+    })
+    expect(written).toMatch(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/)
+    expect(written).toContain('Running typecheck...')
+    expect(written).toContain('\x1b[?25l')
+    vi.advanceTimersByTime(160)
+    renderer.handle({
+      stage: 'typecheck',
+      status: 'passed',
+      message: 'Typecheck passed',
+      durationMs: 3100,
+    })
+    expect(written).toContain('Typecheck passed (3.1s)')
+    expect(written).toContain('\x1b[?25h')
+    renderer.stop()
+  })
+
+  it('clears the spinner and exits 130 on SIGINT', () => {
+    vi.useFakeTimers()
+    let written = ''
+    const renderer = createProgressRenderer({
+      interactive: true,
+      stream: {
+        write: (chunk: string) => {
+          written += chunk
+          return true
+        },
+      } as NodeJS.WritableStream,
+    })
+    const listeners = new Map<string, Array<(...args: unknown[]) => void>>()
+    const fakeProcess = {
+      on(event: string, fn: (...args: unknown[]) => void) {
+        const list = listeners.get(event) ?? []
+        list.push(fn)
+        listeners.set(event, list)
+        return fakeProcess
+      },
+      off(event: string, fn: (...args: unknown[]) => void) {
+        const list = (listeners.get(event) ?? []).filter((handler) => handler !== fn)
+        listeners.set(event, list)
+        return fakeProcess
+      },
+      exit: vi.fn(),
+    }
+    const detach = attachProgressCleanup(
+      renderer,
+      fakeProcess as unknown as Pick<NodeJS.Process, 'on' | 'off' | 'exit'>,
+    )
+    renderer.handle({
+      stage: 'lint',
+      status: 'running',
+      message: 'Running lint...',
+    })
+    listeners.get('SIGINT')?.[0]?.()
+    expect(fakeProcess.exit).toHaveBeenCalledWith(130)
+    expect(written).toContain('\x1b[?25h')
+    detach()
   })
 
   it('prints the failed stage and underlying error', () => {
@@ -197,6 +341,11 @@ describe('pipeline progress events', () => {
     expect(events.some((e) => e.stage === 'security' && e.status === 'completed')).toBe(true)
     expect(events.some((e) => e.stage === 'risk' && e.status === 'completed')).toBe(true)
     expect(events.some((e) => e.stage === 'report' && e.status === 'completed')).toBe(true)
+    expect(events.some((e) => e.message.startsWith('Project detected:'))).toBe(true)
+    expect(events.some((e) => e.message.startsWith('Git changes detected:'))).toBe(true)
+    expect(events.some((e) => e.message === 'Security checks complete')).toBe(true)
+    expect(events.some((e) => e.message === 'Calculating production readiness...')).toBe(true)
+    expect(events.some((e) => e.message === 'Dependency analysis skipped')).toBe(true)
     expect(report.mergeStatus).toMatch(/PASS|REVIEW|BLOCKED/)
     expect(exitCode).toBe(EXIT_PASS)
     expect(() => JSON.parse(output)).not.toThrow()
@@ -302,4 +451,8 @@ describe('parseArgs verbose', () => {
   it('parses --verbose', () => {
     expect(parseArgs(['--verbose', '--skip-checks']).verbose).toBe(true)
   })
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })

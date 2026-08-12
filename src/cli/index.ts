@@ -1,9 +1,14 @@
 import { Command } from 'commander'
 import { runPipeline } from '../core/pipeline.js'
-import type { CliOptions } from '../core/types.js'
+import type { CliOptions, ProgressStage } from '../core/types.js'
 import { EXIT_ERROR } from '../core/exit-codes.js'
+import { shouldDisplayProgressEvent } from '../core/progress.js'
 import { getVersion } from '../core/version.js'
-import { createProgressRenderer, isInteractiveProgress } from './progress-ui.js'
+import {
+  attachProgressCleanup,
+  createProgressRenderer,
+  isInteractiveProgress,
+} from './progress-ui.js'
 
 async function main(): Promise<void> {
   const program = new Command()
@@ -26,6 +31,7 @@ async function main(): Promise<void> {
       const json = Boolean(opts.json)
       const sarif = Boolean(opts.sarif)
       const ci = Boolean(opts.ci)
+      const verbose = Boolean(opts.verbose)
       const interactive = isInteractiveProgress({
         ci,
         json,
@@ -38,6 +44,8 @@ async function main(): Promise<void> {
         stream: process.stderr,
       })
 
+      let lastStage: ProgressStage = 'config'
+      let sawFailure = false
       const options: CliOptions = {
         cwd: opts.cwd,
         base: opts.base,
@@ -54,32 +62,27 @@ async function main(): Promise<void> {
         ci,
         configPath: opts.config,
         skipChecks: Boolean(opts.skipChecks),
-        verbose: Boolean(opts.verbose),
-        onProgress: (event) => renderer.handle(event),
+        verbose,
+        onProgress: (event) => {
+          lastStage = event.stage
+          if (event.status === 'failed') sawFailure = true
+          if (!shouldDisplayProgressEvent(event, { verbose })) return
+          renderer.handle(event)
+        },
       }
 
-      const onSigint = () => {
-        renderer.stop()
-        process.exit(130)
-      }
-      const onExit = () => {
-        renderer.stop()
-      }
-      process.on('SIGINT', onSigint)
-      process.on('exit', onExit)
-
+      const detach = attachProgressCleanup(renderer)
       renderer.header(getVersion())
 
       try {
         const { output, exitCode } = await runPipeline(options)
         process.stdout.write(output.endsWith('\n') ? output : `${output}\n`)
         process.exitCode = exitCode
-      } catch {
+      } catch (err) {
+        if (!sawFailure) renderer.fail(lastStage, err)
         process.exitCode = EXIT_ERROR
       } finally {
-        renderer.stop()
-        process.off('SIGINT', onSigint)
-        process.off('exit', onExit)
+        detach()
       }
     })
 
