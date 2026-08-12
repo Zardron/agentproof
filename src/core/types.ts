@@ -121,6 +121,7 @@ export interface CheckResult {
   summary: string
   details?: string
   durationMs?: number
+  cached?: boolean
 }
 
 export interface CliOptions {
@@ -136,6 +137,7 @@ export interface CliOptions {
   skipChecks: boolean
   verbose?: boolean
   onProgress?: ProgressCallback
+  noCache?: boolean
 }
 
 export type ProgressStage =

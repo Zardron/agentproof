@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Incremental local cache for typecheck / lint / tests / build when inputs are unchanged
+- `--no-cache` and `agentproof cache clear`
+
 ## 0.4.1
 
 ### Added

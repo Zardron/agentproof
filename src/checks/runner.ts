@@ -15,6 +15,8 @@ import {
   resolveWorkspaceTypecheck,
 } from '../detect/workspace-project.js'
 import { emitProgress, eventFromCheck } from '../core/progress.js'
+import { collectWorkspaceFingerprint } from '../cache/fingerprint.js'
+import { readCachedCheck, writeCachedCheck } from '../cache/store.js'
 
 async function runCommand(
   id: string,
@@ -166,9 +168,54 @@ export async function runChecks(options: {
   skipChecks: boolean
   verbose?: boolean
   onProgress?: ProgressCallback
+  noCache?: boolean
 }): Promise<CheckResult[]> {
-  const { project, policy, diff, skipChecks, verbose, onProgress } = options
+  const { project, policy, diff, skipChecks, verbose, onProgress, noCache } = options
   if (skipChecks) return emitSkippedChecks(onProgress)
+
+  const workspaceFingerprint = noCache ? '' : collectWorkspaceFingerprint(project.root)
+
+  const runCached = async (
+    stage: ProgressStage,
+    title: string,
+    command: string | null,
+    running: string,
+    fn: () => Promise<CheckResult>,
+    emitRunning = true,
+  ): Promise<CheckResult> => {
+    if (!noCache) {
+      const hit = readCachedCheck({
+        cwd: project.root,
+        checkId: stage,
+        command,
+        workspaceFingerprint,
+      })
+      if (hit) {
+        emitProgress(onProgress, eventFromCheck(stage, title, hit))
+        return hit
+      }
+    }
+    return withCheckProgress(
+      onProgress,
+      stage,
+      title,
+      running,
+      async () => {
+        const result = await fn()
+        if (!noCache) {
+          writeCachedCheck({
+            cwd: project.root,
+            checkId: stage,
+            command,
+            workspaceFingerprint,
+            result,
+          })
+        }
+        return result
+      },
+      emitRunning,
+    )
+  }
 
   const packages = listWorkspacePackages(project.root)
   const affected = affectedPackages(diff, packages)
@@ -340,10 +387,10 @@ export async function runChecks(options: {
   const buildCmd = resolveBuildCommand(project)
 
   return [
-    await withCheckProgress(
-      onProgress,
+    await runCached(
       'typecheck',
       'Typecheck',
+      typeCmd,
       runningMessage('Typecheck', typeCmd, verbose),
       () =>
         runCommand(
@@ -355,10 +402,10 @@ export async function runChecks(options: {
         ),
       Boolean(typeCmd),
     ),
-    await withCheckProgress(
-      onProgress,
+    await runCached(
       'lint',
       'Lint',
+      lintCmd,
       runningMessage('Lint', lintCmd, verbose),
       () =>
         runLintCheck({
@@ -371,10 +418,10 @@ export async function runChecks(options: {
         }),
       Boolean(lintCmd),
     ),
-    await withCheckProgress(
-      onProgress,
+    await runCached(
       'tests',
       'Tests',
+      testCmd,
       runningMessage('Tests', testCmd, verbose),
       () =>
         runCommand(
@@ -387,10 +434,10 @@ export async function runChecks(options: {
         ),
       Boolean(testCmd),
     ),
-    await withCheckProgress(
-      onProgress,
+    await runCached(
       'build',
       'Build',
+      buildCmd,
       runningMessage('Build', buildCmd, verbose),
       () =>
         runCommand(

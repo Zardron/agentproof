@@ -19,6 +19,7 @@ export function parseArgs(argv: string[]): CliOptions {
     else if (a === '--ci') opts.ci = true
     else if (a === '--skip-checks') opts.skipChecks = true
     else if (a === '--verbose') opts.verbose = true
+    else if (a === '--no-cache') opts.noCache = true
     else if (a === '--html') {
       const next = argv[i + 1]
       if (next && !next.startsWith('-')) {

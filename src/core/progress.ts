@@ -38,6 +38,7 @@ export function statusFromCheck(status: CheckResult['status']): ProgressStatus {
 }
 
 export function messageForCheck(title: string, result: CheckResult): string {
+  if (result.cached && result.status === 'passed') return `${title} passed (cached)`
   if (result.status === 'passed') return `${title} passed`
   if (result.status === 'failed') return `${title} failed`
   if (result.status === 'warned') return `${title} warning`

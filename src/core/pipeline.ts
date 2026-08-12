@@ -92,6 +92,7 @@ export async function runPipeline(options: CliOptions): Promise<{
       skipChecks: options.skipChecks,
       verbose: options.verbose,
       onProgress,
+      noCache: options.noCache,
     })
 
     emitProgress(onProgress, {
