@@ -136,6 +136,8 @@ export interface CliOptions {
   skipChecks: boolean
   verbose?: boolean
   onProgress?: ProgressCallback
+  /** When true, stdout is the related test path list (unless --json/--sarif). */
+  affectedTests?: boolean
 }
 
 export type ProgressStage =
@@ -170,6 +172,27 @@ export interface ProgressEvent {
 
 export type ProgressCallback = (event: ProgressEvent) => void
 
+export type TestLinkConfidence = 'import' | 'naming'
+
+export interface TestImpactLink {
+  source: string
+  tests: string[]
+  confidence: TestLinkConfidence
+}
+
+export interface UntestedSource {
+  source: string
+  critical: boolean
+}
+
+export interface TestImpactReport {
+  changedSourceFiles: string[]
+  affectedModules: string[]
+  relatedTests: TestImpactLink[]
+  untested: UntestedSource[]
+  affectedTestPaths: string[]
+}
+
 export interface ReportModel {
   project: ProjectModel
   diff: NormalizedDiff
@@ -179,4 +202,5 @@ export interface ReportModel {
   readiness: number
   mergeStatus: MergeStatus
   blockedReasons: string[]
+  testImpact: TestImpactReport
 }

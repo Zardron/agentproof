@@ -22,6 +22,7 @@ async function main(): Promise<void> {
     .option('--cwd <path>', 'Working directory', process.cwd())
     .option('--skip-checks', 'Skip typecheck/lint/test/build (rules only)', false)
     .option('--verbose', 'Show commands, config, and extra progress detail', false)
+    .option('--affected-tests', 'Print related test paths to stdout (script-friendly)', false)
     .action(async (revision: string | undefined, opts) => {
       const json = Boolean(opts.json)
       const sarif = Boolean(opts.sarif)
@@ -55,6 +56,7 @@ async function main(): Promise<void> {
         configPath: opts.config,
         skipChecks: Boolean(opts.skipChecks),
         verbose: Boolean(opts.verbose),
+        affectedTests: Boolean(opts.affectedTests),
         onProgress: (event) => renderer.handle(event),
       }
 

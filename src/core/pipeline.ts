@@ -17,6 +17,7 @@ import { emitGithubAnnotations } from '../reporters/github-annotations.js'
 import { exitCodeForMergeStatus } from './exit-codes.js'
 import { fetchAdvisoryFindings } from '../checks/advisories.js'
 import { dependencyFindingInputs } from '../checks/dependencies.js'
+import { analyzeTestImpact, formatAffectedTests } from '../impact/analyze.js'
 import {
   STAGE_FAILURE_LABEL,
   diffCompletedMessage,
@@ -85,6 +86,8 @@ export async function runPipeline(options: CliOptions): Promise<{
       detail: fileCountLabel(diff.files.length),
     })
 
+    const testImpact = analyzeTestImpact({ cwd: options.cwd, diff, policy })
+
     const checks = await runChecks({
       project,
       policy,
@@ -143,6 +146,7 @@ export async function runPipeline(options: CliOptions): Promise<{
       readiness,
       mergeStatus,
       blockedReasons,
+      testImpact,
     }
 
     if (options.html) {
@@ -170,6 +174,7 @@ export async function runPipeline(options: CliOptions): Promise<{
     let output: string
     if (options.sarif) output = formatSarif(report)
     else if (options.json) output = formatJson(report)
+    else if (options.affectedTests) output = formatAffectedTests(report.testImpact)
     else output = formatTerminal(report)
     emitProgress(onProgress, {
       stage: 'report',

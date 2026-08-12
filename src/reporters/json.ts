@@ -19,6 +19,7 @@ export function formatJson(report: ReportModel): string {
       productionReadiness: report.readiness,
       mergeStatus: report.mergeStatus,
       blockedReasons: report.blockedReasons,
+      testImpact: report.testImpact,
       checks: report.checks,
       findings: report.findings,
       diff: {

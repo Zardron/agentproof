@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Deterministic test impact analysis (import graph + test naming) in the report
+- `--affected-tests` prints related test paths, one per line, for scripts
+
 ## 0.4.1
 
 ### Added

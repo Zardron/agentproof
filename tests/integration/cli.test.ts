@@ -27,6 +27,7 @@ describe('CLI help', () => {
     expect(help.stdout.toLowerCase()).toContain('agentproof')
     expect(help.stdout).toContain('--html')
     expect(help.stdout).toContain('--verbose')
+    expect(help.stdout).toContain('--affected-tests')
     void result
   })
 })

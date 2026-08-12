@@ -40,4 +40,5 @@ export type {
   ProgressEvent,
   ProgressStage,
   ProgressStatus,
+  TestImpactReport,
 } from './core/types.js'
