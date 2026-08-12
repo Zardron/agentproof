@@ -3,8 +3,10 @@ import path from 'node:path'
 import { cosmiconfig } from 'cosmiconfig'
 import yaml from 'js-yaml'
 import { z } from 'zod'
+import { resolveExtends } from './packs.js'
 
 export const policySchema = z.object({
+  extends: z.union([z.string(), z.array(z.string())]).optional(),
   fail_on: z
     .enum(['none', 'low', 'medium', 'high', 'critical'])
     .default('high'),
@@ -15,6 +17,12 @@ export const policySchema = z.object({
       tests: z.boolean().default(false),
       typecheck: z.boolean().default(true),
       lint: z.boolean().default(false),
+    })
+    .default({}),
+  lint: z
+    .object({
+      /** When true, only lint issues on changed lines fail the check. */
+      new_issues_only: z.boolean().default(true),
     })
     .default({}),
   dependencies: z
@@ -68,41 +76,49 @@ export async function loadPolicy(
   cwd: string,
   configPath?: string,
 ): Promise<Policy> {
+  let raw: unknown = {}
+
   if (configPath) {
     const abs = path.isAbsolute(configPath)
       ? configPath
       : path.join(cwd, configPath)
-    const data = await parseConfigFile(abs)
-    return policySchema.parse(data ?? {})
+    raw = (await parseConfigFile(abs)) ?? {}
+  } else {
+    const explorer = cosmiconfig('agentproof', {
+      searchPlaces: [
+        'agentproof.config.yaml',
+        'agentproof.config.yml',
+        'agentproof.config.json',
+        'agentproof.config.ts',
+        'agentproof.config.js',
+        'agentproof.config.mjs',
+        '.agentproofrc',
+        '.agentproofrc.yaml',
+        '.agentproofrc.yml',
+        '.agentproofrc.json',
+        'package.json',
+      ],
+      loaders: {
+        '.yaml': (_filepath, content) => yaml.load(content),
+        '.yml': (_filepath, content) => yaml.load(content),
+        '.ts': async (filepath) => loadTsConfig(filepath),
+        '.mts': async (filepath) => loadTsConfig(filepath),
+      },
+    })
+
+    const result = await explorer.search(cwd)
+    if (result && !result.isEmpty) {
+      raw =
+        result.config &&
+        typeof result.config === 'object' &&
+        'agentproof' in (result.config as object)
+          ? (result.config as { agentproof: unknown }).agentproof
+          : result.config
+    }
   }
 
-  const explorer = cosmiconfig('agentproof', {
-    searchPlaces: [
-      'agentproof.config.yaml',
-      'agentproof.config.yml',
-      'agentproof.config.json',
-      'agentproof.config.ts',
-      'agentproof.config.js',
-      'agentproof.config.mjs',
-      '.agentproofrc',
-      '.agentproofrc.yaml',
-      '.agentproofrc.yml',
-      '.agentproofrc.json',
-      'package.json',
-    ],
-    loaders: {
-      '.yaml': (_filepath, content) => yaml.load(content),
-      '.yml': (_filepath, content) => yaml.load(content),
-      '.ts': async (filepath) => loadTsConfig(filepath),
-      '.mts': async (filepath) => loadTsConfig(filepath),
-    },
-  })
-
-  const result = await explorer.search(cwd)
-  if (!result || result.isEmpty) return defaultPolicy
-  const data =
-    result.config && typeof result.config === 'object' && 'agentproof' in (result.config as object)
-      ? (result.config as { agentproof: unknown }).agentproof
-      : result.config
-  return policySchema.parse(data ?? {})
+  const asObject =
+    raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+  const merged = resolveExtends(asObject, cwd)
+  return policySchema.parse(merged)
 }

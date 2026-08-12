@@ -12,6 +12,8 @@ npm test
 
 Requires Node.js 20+.
 
+Published package name: **`agentproof-cli`** (CLI binary: `agentproof`).
+
 ## Guidelines
 
 - Prefer high-confidence rules with evidence over broad pattern spam.

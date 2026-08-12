@@ -1,0 +1,10 @@
+# Built-in pack: security-focused defaults
+fail_on: high
+require:
+  typecheck: true
+dependencies:
+  new_dependency: review
+  advisories: true
+security:
+  secret_detection: true
+  auth_regression: true
