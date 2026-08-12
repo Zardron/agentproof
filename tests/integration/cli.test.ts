@@ -25,7 +25,7 @@ describe('CLI help', () => {
     await execa('npm', ['run', 'build'], { cwd: root })
     const help = await execa('node', ['dist/cli/index.js', '--help'], { cwd: root })
     expect(help.stdout.toLowerCase()).toContain('agentproof')
-    expect(help.stdout).toContain('--base')
+    expect(help.stdout).toContain('--html')
     void result
   })
 })
@@ -42,6 +42,7 @@ describe('pipeline JSON', () => {
     })
     expect(report.project.runtime).toBe('node')
     expect(output).toContain('"tool": "agentproof"')
+    expect(output).toContain('"version": "0.2.0"')
   })
 })
 

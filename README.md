@@ -12,6 +12,8 @@ npx agentproof --base main --ci
 npx agentproof --staged
 npx agentproof --json
 npx agentproof --sarif
+npx agentproof --html
+npx agentproof --config agentproof.config.ts
 ```
 
 ## Why teams use it
@@ -23,11 +25,11 @@ npx agentproof --sarif
 | Platform / security teams | Policy as code: protected paths, required checks, fail-on thresholds |
 | Engineering orgs | Deterministic CI gate for pull requests |
 
-## Supported ecosystem (Phase 1)
+## Supported ecosystem
 
 - **Runtime:** Node.js · TypeScript · JavaScript
 - **Package managers:** npm · pnpm · Yarn · Bun
-- **Frameworks (first-class):** plain Node · Express · NestJS · React/Vite · Next.js
+- **Frameworks:** Node · Express · Fastify · Hono · NestJS · React/Vite · Next.js · Remix · Astro · Nuxt · Vue · SvelteKit · Angular
 
 Detection is automatic. No framework flag required for normal use.
 
@@ -76,10 +78,17 @@ require:
 
 dependencies:
   new_dependency: review
+  advisories: true
 
 security:
   secret_detection: true
   auth_regression: true
+```
+
+HTML reports stay local:
+
+```bash
+npx agentproof --html ./agentproof-report.html
 ```
 
 ## GitHub Actions
@@ -96,6 +105,7 @@ security:
 - Public and open source (MIT)
 - No telemetry by default
 - Never uploads source code
+- OSV queries send package name/version only (never source)
 - Runs entirely on the local machine / CI runner
 - Deterministic core analysis
 

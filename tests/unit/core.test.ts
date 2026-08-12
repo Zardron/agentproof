@@ -5,6 +5,7 @@ import { applyPolicyToFindings, evaluateMergeStatus } from '../../src/policy/eng
 import { defaultPolicy } from '../../src/policy/schema.js'
 import type { CheckResult, Finding } from '../../src/core/types.js'
 import { detectPackageManager } from '../../src/detect/package-manager.js'
+import { getVersion } from '../../src/core/version.js'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -89,5 +90,11 @@ describe('policy engine', () => {
 describe('package manager detection', () => {
   it('detects npm lock in this repo', () => {
     expect(detectPackageManager(root)).toBe('npm')
+  })
+})
+
+describe('version', () => {
+  it('reads the package version', () => {
+    expect(getVersion()).toBe('0.2.0')
   })
 })

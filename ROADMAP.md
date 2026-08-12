@@ -1,20 +1,18 @@
 # Roadmap
 
-## Now (0.1)
+## Now (0.2)
 
-Ship a trustworthy CI gate for JS/TS changes: detection, checks, high-value security rules, auth regression, policy thresholds, GitHub Action.
+Ship broader framework coverage, monorepo-aware checks, HTML reports, TypeScript config, and OSV advisory enrichment — while keeping analysis local-first.
 
 ## Next
 
-- More framework adapters
-- Smarter monorepo check targeting
-- Optional HTML report
-- OSV / advisory enrichment for dependency findings
+- Diff-aware lint “new issues only”
+- Shareable team policy packs
+- Pre-commit / editor integrations
 
 ## Later
 
-- Policy packs for agencies and platforms
-- Pre-commit / editor integrations
+- SARIF upload helpers for code scanning
 - Performance modes for very large repositories
 
 AgentProof will remain open source and privacy-first.

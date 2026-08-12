@@ -5,9 +5,9 @@ Thanks for helping improve AgentProof.
 ## Setup
 
 ```bash
-pnpm install
-pnpm build
-pnpm test
+npm install
+npm run build
+npm test
 ```
 
 Requires Node.js 20+.
@@ -15,16 +15,17 @@ Requires Node.js 20+.
 ## Guidelines
 
 - Prefer high-confidence rules with evidence over broad pattern spam.
-- Add fixtures under `fixtures/` and `tests/fixtures/` for new rules (clean + vulnerable + false-positive).
-- Keep the core free of network calls that upload source.
-- Match existing TypeScript style; run `pnpm typecheck` and `pnpm test` before opening a PR.
-- Config formats that work today: `agentproof.config.yaml`, `.yml`, `.json`, and `package.json#agentproof`. TypeScript config files are reserved for a later loader.
+- Add fixtures under `fixtures/` for new rules (clean + vulnerable + false-positive).
+- Keep the core free of network calls that upload source. OSV queries send package name/version only.
+- Match existing TypeScript style; run `npm run typecheck` and `npm test` before opening a PR.
+- Config formats: `agentproof.config.yaml`, `.yml`, `.json`, `.ts`, and `package.json#agentproof`.
 
 ## Pull requests
 
 1. Describe the why (false-positive fix, new adapter, CI behavior).
 2. Include tests.
 3. Update `RULES.md` / `CHANGELOG.md` when user-visible.
+4. **Bump the version** in `package.json` on every PR (`patch` for fixes, `minor` for features) and add a `CHANGELOG.md` entry. CI fails if the version is not greater than the base branch.
 
 ## Code of conduct
 
