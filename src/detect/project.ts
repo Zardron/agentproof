@@ -6,6 +6,7 @@ import {
   collectEnvPrefixes,
   detectFrameworks,
 } from './frameworks/index.js'
+import { detectMonorepo } from './monorepo.js'
 import { detectPackageManager, runWithPm } from './package-manager.js'
 
 function listTopFiles(root: string): Set<string> {
@@ -52,17 +53,8 @@ function detectOrm(pkg: Record<string, unknown>, files: Set<string>): ProjectMod
   return 'none'
 }
 
-function detectMonorepo(root: string, files: Set<string>): ProjectModel['monorepo'] {
-  if (files.has('pnpm-workspace.yaml')) {
-    return { kind: 'pnpm', packages: [] }
-  }
-  if (files.has('nx.json')) return { kind: 'nx', packages: [] }
-  if (files.has('turbo.json')) return { kind: 'turbo', packages: [] }
-  const pkg = readPackageJson(root)
-  if (Array.isArray(pkg.workspaces)) {
-    return { kind: 'pnpm', packages: pkg.workspaces as string[] }
-  }
-  return { kind: 'none', packages: [] }
+function detectMonorepoShape(root: string, files: Set<string>): ProjectModel['monorepo'] {
+  return detectMonorepo(root, files)
 }
 
 function detectTest(
@@ -131,11 +123,21 @@ function detectBuild(
     const tool =
       frameworks.includes('nextjs')
         ? 'next'
-        : frameworks.includes('nestjs')
-          ? 'nestjs'
-          : frameworks.includes('vite')
-            ? 'vite'
-            : 'script'
+        : frameworks.includes('nuxt')
+          ? 'nuxt'
+          : frameworks.includes('nestjs')
+            ? 'nestjs'
+            : frameworks.includes('vite')
+              ? 'vite'
+              : frameworks.includes('astro')
+                ? 'astro'
+                : frameworks.includes('sveltekit')
+                  ? 'sveltekit'
+                  : frameworks.includes('angular')
+                    ? 'angular'
+                    : frameworks.includes('remix')
+                      ? 'remix'
+                      : 'script'
     return { command: runWithPm(pm, 'run build'), tool }
   }
   if (fs.existsSync(path.join(root, 'tsconfig.json'))) {
@@ -169,7 +171,7 @@ export function detectProject(root: string): ProjectModel {
     test: detectTest(pkg, pm),
     lint: detectLint(pkg, files, pm),
     orm: detectOrm(pkg, files),
-    monorepo: detectMonorepo(root, files),
+    monorepo: detectMonorepoShape(root, files),
     ci: { provider: detectCiProvider() },
     envPrefixes: collectEnvPrefixes(frameworks),
     packageJsonScripts: scripts,

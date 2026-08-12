@@ -6,10 +6,18 @@ export type ChangeRisk = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 export type FrameworkId =
   | 'node'
   | 'express'
+  | 'fastify'
+  | 'hono'
   | 'nestjs'
   | 'react'
   | 'vite'
   | 'nextjs'
+  | 'remix'
+  | 'astro'
+  | 'nuxt'
+  | 'vue'
+  | 'sveltekit'
+  | 'angular'
 
 export type RiskDomain =
   | 'authentication'
@@ -119,6 +127,7 @@ export interface CliOptions {
   staged: boolean
   json: boolean
   sarif: boolean
+  html?: string
   ci: boolean
   configPath?: string
   skipChecks: boolean
