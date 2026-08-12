@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Custom rule Plugin SDK via `agentproof-cli/plugin` (`defineRule`, `definePlugin`, `createFinding`)
+- Config `plugins: []` loads local paths or installed packages only (remote URLs rejected)
+- Example plugin fixture and [PLUGIN.md](./PLUGIN.md) for rule authors
+
 ## 0.4.1
 
 ### Added

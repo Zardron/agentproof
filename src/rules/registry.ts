@@ -20,6 +20,7 @@ import {
   authzCheckRemovedRule,
 } from './regression/index.js'
 import { depNewPackageRule, untestedSensitiveRule } from './deps-risk.js'
+import { loadPluginRules } from '../plugin/load.js'
 
 export const allRules: Rule[] = [
   secretHardcodedRule,
@@ -43,8 +44,17 @@ export const allRules: Rule[] = [
 
 export async function runRules(ctx: RuleContext): Promise<Finding[]> {
   resetFindingCounter()
+  const pluginRules = await loadPluginRules(ctx.project.root, ctx.policy.plugins ?? [])
+  const builtinIds = new Set(allRules.map((rule) => rule.id))
+  for (const rule of pluginRules) {
+    if (builtinIds.has(rule.id)) {
+      throw new Error(
+        `Plugin rule id "${rule.id}" conflicts with a built-in AgentProof rule. Choose a unique id (e.g. company.rule-name).`,
+      )
+    }
+  }
   const findings: Finding[] = []
-  for (const rule of allRules) {
+  for (const rule of [...allRules, ...pluginRules]) {
     if (!rule.supports(ctx)) continue
     const result = await rule.run(ctx)
     findings.push(...result)

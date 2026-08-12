@@ -7,6 +7,7 @@ export default defineConfig([
   {
     entry: {
       index: 'src/index.ts',
+      'plugin/index': 'src/plugin/index.ts',
     },
     format: ['esm'],
     target: 'node20',
