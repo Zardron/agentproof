@@ -2,6 +2,7 @@ import path from 'node:path'
 import { EXIT_PASS } from '../core/exit-codes.js'
 import { runPipeline } from '../core/pipeline.js'
 import type { CliOptions } from '../core/types.js'
+import { loadPolicy } from '../policy/schema.js'
 import { DEFAULT_BASELINE_FILE } from './fingerprint.js'
 import { resolveBaselinePath, writeBaselineFile } from './store.js'
 
@@ -15,6 +16,7 @@ export async function recordBaseline(options: RecordBaselineOptions): Promise<{
   output: string
   exitCode: number
 }> {
+  const policy = await loadPolicy(options.cwd, options.configPath)
   const { report } = await runPipeline({
     ...options,
     applyBaseline: false,
@@ -22,7 +24,10 @@ export async function recordBaseline(options: RecordBaselineOptions): Promise<{
     sarif: false,
     html: undefined,
   })
-  const filePath = resolveBaselinePath(options.cwd, options.baselinePath)
+  const filePath = resolveBaselinePath(
+    options.cwd,
+    options.baselinePath ?? policy.baseline.path,
+  )
   const baseline = writeBaselineFile(filePath, report.findings)
   const relative = path.relative(options.cwd, filePath) || DEFAULT_BASELINE_FILE
   const output = [

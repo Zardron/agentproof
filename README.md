@@ -279,7 +279,7 @@ npx agentproof --help
 
 | Flag / argument | Purpose | Example |
 |-----------------|---------|---------|
-| `baseline` | Record currently accepted findings to `.agentproof-baseline.json` | `npx agentproof baseline --base main` |
+| `baseline` | Record currently accepted findings to `baseline.path` (default `.agentproof-baseline.json`) | `npx agentproof baseline --base main` |
 | `[revision]` | Compare that revision to `HEAD` (e.g. previous commit) | `npx agentproof HEAD~1` |
 | `--base <ref>` | Compare against a branch or commit (recommended for feature branches) | `npx agentproof --base main` |
 | `--staged` | Analyze staged changes only | `npx agentproof --staged` |
@@ -311,7 +311,7 @@ Existing projects can adopt AgentProof without being blocked by legacy findings.
 npx agentproof baseline --base main
 ```
 
-This writes a deterministic, secret-free `.agentproof-baseline.json` that is safe to commit. Fingerprints use rule id, file path, and normalized message — not line numbers or evidence snippets — so findings still match after line movement. Deleted files show up as resolved.
+This writes a deterministic, secret-free baseline file (`baseline.path`, default `.agentproof-baseline.json`) that is safe to commit. Fingerprints use rule id, file path, and normalized message — not line numbers or evidence snippets — so findings still match after line movement. Deleted files show up as resolved.
 
 Later runs:
 
