@@ -15,6 +15,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./plugin": {
+      "types": "./dist/plugin/index.d.ts",
+      "import": "./dist/plugin/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -23,6 +27,7 @@
     "packs",
     "action.yml",
     "README.md",
+    "PLUGIN.md",
     "LICENSE"
   ],
   "sideEffects": false,

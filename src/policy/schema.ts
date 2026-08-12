@@ -43,6 +43,11 @@ export const policySchema = z.object({
   severity_overrides: z
     .record(z.enum(['critical', 'high', 'medium', 'low', 'info']))
     .default({}),
+  /**
+   * Explicit local plugin modules to load (package names or filesystem paths).
+   * Remote URLs are rejected at load time.
+   */
+  plugins: z.array(z.string()).default([]),
 })
 
 export type Policy = z.infer<typeof policySchema>

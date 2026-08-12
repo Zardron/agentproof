@@ -50,6 +50,7 @@ Per-file status (A/M/D/R), hunks with base/current lines, language, and risk dom
 | `git/` | Diff engine + risk classification |
 | `checks/` | Typecheck, lint, tests, build, dependency delta |
 | `rules/` | Pluggable `Rule` interface + registry |
+| `plugin/` | Public SDK for custom rules (`agentproof-cli/plugin`) |
 | `policy/` | Zod schema, cosmiconfig load, fail_on / protected paths |
 | `core/` | Pipeline orchestration, scoring, exit codes |
 | `reporters/` | Terminal, JSON, SARIF, GitHub annotations |
@@ -69,6 +70,8 @@ interface Rule {
   run(context: RuleContext): Promise<Finding[]>
 }
 ```
+
+Custom rules should be authored with `defineRule` / `definePlugin` from `agentproof-cli/plugin` and enabled through config `plugins`. See [PLUGIN.md](./PLUGIN.md).
 
 ## Policy engine
 

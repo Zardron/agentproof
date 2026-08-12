@@ -355,7 +355,35 @@ ignore_rules:
 
 severity_overrides:
   dep.new_package: low
+
+plugins:
+  - ./rules/acme-rules.ts
 ```
+
+### Custom rules (Plugin SDK)
+
+Teams can add deterministic rules via the `agentproof-cli/plugin` export. Plugins load **only** from explicit config entries (local paths or installed package names) — remote URLs are rejected.
+
+```ts
+import { definePlugin, defineRule, createFinding, addedLines } from 'agentproof-cli/plugin'
+
+export default definePlugin({
+  name: 'acme-rules',
+  rules: [
+    defineRule({
+      id: 'acme.no-direct-stripe',
+      title: 'No direct Stripe client in route handlers',
+      severity: 'high',
+      analyze(ctx) {
+        // use ctx.diff, ctx.project, ctx.dependencies
+        return []
+      },
+    }),
+  ],
+})
+```
+
+See [PLUGIN.md](./PLUGIN.md) for the security model, context fields, and the example fixture.
 
 ### Policy packs
 
@@ -547,6 +575,7 @@ Disable advisories with `dependencies.advisories: false` if you want fully offli
 ## Documentation
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md)
+- [PLUGIN.md](./PLUGIN.md) — custom rule / plugin SDK
 - [RULES.md](./RULES.md)
 - [SECURITY.md](./SECURITY.md)
 - [CONTRIBUTING.md](./CONTRIBUTING.md)
