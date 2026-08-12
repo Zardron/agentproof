@@ -1,193 +1,74 @@
 # AgentProof
 
+[![CI](https://github.com/Zardron/agentproof/actions/workflows/ci.yml/badge.svg)](https://github.com/Zardron/agentproof/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/agentproof-cli.svg)](https://www.npmjs.com/package/agentproof-cli)
+[![Node.js](https://img.shields.io/node/v/agentproof-cli.svg)](https://www.npmjs.com/package/agentproof-cli)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+
 **Verify code changes before they reach production.**
 
-AgentProof is a framework-aware, CI-friendly verification CLI for Node.js / TypeScript projects. It analyzes a git diff — not who wrote the code — and reports whether the change is safe to merge.
+AgentProof is a CI-friendly verification CLI for **Node.js / JavaScript / TypeScript** projects.
 
-It runs typecheck, lint, tests, and build when configured; scans for secrets and high-confidence security issues; detects authentication / authorization regressions vs the base branch; and can block CI when policy thresholds are exceeded.
+It analyzes a **git diff** — not who wrote the code — and answers one question:
 
-## Features
+> Is this change safe enough to merge?
 
-- Automatic project detection (package manager, frameworks, build/test/lint commands)
-- Diff-aware risk classification (auth, payments, deps, migrations, and more)
-- Checks: typecheck, lint, tests, build, dependency changes
-- Security rules with evidence (secrets, eval, shell, SQL, CORS, TLS, redirects, and more)
-- Auth / authz regression detection against the base branch
-- Policy config (`fail_on`, protected paths, required checks)
-- Reporters: terminal, JSON, SARIF, local HTML, GitHub annotations
-- Optional OSV advisory enrichment for new/upgraded dependencies (package name/version only — never source)
-- GitHub Action for pull-request gates
+It does **not** try to detect AI-generated code. It evaluates the resulting change objectively: project checks, secrets, dependency risk, and high-confidence security regressions.
 
-## Installation
+📦 **npm:** [`agentproof-cli`](https://www.npmjs.com/package/agentproof-cli) · **CLI command:** `agentproof`
+
+---
+
+## Why AgentProof?
+
+Modern PRs move fast. AgentProof gives teams a **deterministic merge gate** that:
+
+- Runs the checks you already care about (typecheck, lint, tests, build)
+- Flags secrets and risky patterns with **evidence**
+- Detects **auth / authorization regressions** vs the base branch
+- Enforces policy as code (`fail_on`, protected paths, required checks)
+- Stays **local-first** — no source upload, no telemetry by default
+
+---
+
+## What it does
+
+On each run, AgentProof:
+
+1. **Detects** your project (language, package manager, frameworks, build/test/lint)
+2. **Computes** the git diff (`--staged`, `--base`, or a revision)
+3. **Classifies** changed files by risk (auth, payments, deps, migrations, …)
+4. **Runs checks** when available: typecheck, lint, tests, build, dependency review
+5. **Applies security rules** with evidence snippets
+6. **Scores** change risk + production readiness
+7. **Reports** merge status: `PASS` · `REVIEW` · `BLOCKED`
+
+---
+
+## Quick start
 
 ```bash
 npm install -D agentproof-cli
 ```
 
-Also works with:
+```bash
+# Review local changes
+npx agentproof-cli
+
+# Gate a PR against main
+npx agentproof-cli --base main --ci
+```
+
+Also works with `pnpm` / `yarn`:
 
 ```bash
 pnpm add -D agentproof-cli
 yarn add -D agentproof-cli
 ```
 
-> **Note:** The npm name `agentproof` is a different, unrelated package. This tool is published as **`agentproof-cli`**. After install, the CLI command is still `agentproof`.
+> The npm name `agentproof` is a **different, unrelated** package. Install **`agentproof-cli`**. After install, the binary is still `agentproof`.
 
-## Quick start
-
-```bash
-npx agentproof-cli
-npx agentproof-cli --base main --ci
-```
-
-Or after a local/devDependency install:
-
-```bash
-agentproof --help
-agentproof --base main --ci
-agentproof --staged
-agentproof --json
-agentproof --sarif
-agentproof --html ./agentproof-report.html
-agentproof --config agentproof.config.yaml
-```
-
-## CLI
-
-| Command / flag | Description |
-|----------------|-------------|
-| `agentproof` | Analyze changes vs default base (or working tree) |
-| `agentproof HEAD~1` | Compare against a revision |
-| `--base <ref>` | Base branch or commit (e.g. `main`) |
-| `--staged` | Analyze staged changes only |
-| `--json` | Emit JSON report |
-| `--sarif` | Emit SARIF report |
-| `--html [path]` | Write a local HTML report |
-| `--ci` | CI mode (exit `1` when merge is blocked) |
-| `--config <path>` | Path to config file |
-| `--cwd <path>` | Working directory |
-| `--skip-checks` | Skip typecheck/lint/test/build (rules only) |
-| `--help` / `--version` | Help and version |
-
-### Exit codes
-
-| Code | Meaning |
-|------|---------|
-| `0` | Pass or review (non-blocking) |
-| `1` | Blocked (when `--ci`) |
-| `2` | Unexpected error |
-
-## Configuration
-
-Create `agentproof.config.yaml` (also supports `.yml`, `.json`, `.ts`, or `package.json#agentproof`):
-
-```yaml
-extends: security   # built-ins: strict | security | relaxed | ci — or ./team-pack.yaml
-
-fail_on: high
-
-protected_areas:
-  - "src/auth/**"
-  - "src/payments/**"
-  - "prisma/migrations/**"
-
-require:
-  build: true
-  tests: true
-  typecheck: true
-  lint: false
-
-lint:
-  new_issues_only: true   # only fail on lint issues on changed lines
-
-dependencies:
-  new_dependency: review
-  advisories: true
-
-security:
-  secret_detection: true
-  auth_regression: true
-
-ignore_rules: []
-severity_overrides: {}
-```
-
-See [RULES.md](./RULES.md) for the full rule catalog.
-
-## Programmatic API
-
-```js
-import { runPipeline, getVersion } from 'agentproof-cli'
-
-const { report, exitCode, output } = await runPipeline({
-  cwd: process.cwd(),
-  base: 'main',
-  staged: false,
-  json: true,
-  sarif: false,
-  ci: true,
-  skipChecks: false,
-})
-
-console.log(getVersion())
-console.log(report.mergeStatus)
-process.exitCode = exitCode
-```
-
-### Exports
-
-| Export | Description |
-|--------|-------------|
-| `runPipeline(options)` | Run the full analysis pipeline |
-| `detectProject(root)` | Detect runtime/framework/tooling |
-| `describeProject(project)` | Human-readable project summary |
-| `loadPolicy(cwd, configPath?)` | Load policy config |
-| `defaultPolicy` / `policySchema` | Default policy and Zod schema |
-| `getVersion()` | Package version string |
-| `exitCodeForMergeStatus(...)` | Map merge status to exit code |
-| Types | `CliOptions`, `ReportModel`, `Finding`, `ProjectModel`, … |
-
-## GitHub Actions
-
-```yaml
-- uses: Zardron/agentproof@v0.3.0
-  with:
-    base: origin/main
-    fail-on: high
-```
-
-Or install the published package in your own workflow:
-
-```yaml
-- run: npm install -D agentproof-cli
-- run: npx agentproof --base origin/main --ci
-```
-
-## Supported ecosystem
-
-- **Runtime:** Node.js · TypeScript · JavaScript
-- **Package managers:** npm · pnpm · Yarn · Bun
-- **Frameworks:** Node · Express · Fastify · Hono · NestJS · React/Vite · Next.js · Remix · Astro · Nuxt · Vue · SvelteKit · Angular
-
-Detection is automatic. No framework flag is required for normal use.
-
-## Requirements
-
-- **Node.js 20+**
-- A git repository (for diff analysis)
-- Network access only if OSV advisories are enabled (optional; sends package name/version only)
-
-## TypeScript
-
-Type declarations ship with the package (`dist/index.d.ts`). No `@types` package is required.
-
-## Privacy
-
-- MIT open source
-- No telemetry by default
-- Never uploads source code
-- OSV queries send package name/version only
-- Runs on the local machine / CI runner
+---
 
 ## Example output
 
@@ -213,19 +94,177 @@ MERGE STATUS
 BLOCKED
 ```
 
+---
+
+## Common commands
+
+```bash
+agentproof --help
+agentproof --base main --ci
+agentproof --staged
+agentproof HEAD~1
+agentproof --json
+agentproof --sarif
+agentproof --html ./agentproof-report.html
+agentproof --config agentproof.config.yaml
+agentproof --skip-checks
+```
+
+| Flag | Purpose |
+|------|---------|
+| `--base <ref>` | Compare against a branch/commit |
+| `--staged` | Only staged changes |
+| `--ci` | Exit `1` when blocked |
+| `--json` / `--sarif` / `--html` | Machine-readable or HTML report |
+| `--config <path>` | Policy file |
+| `--skip-checks` | Rules only (skip project checks) |
+
+**Exit codes:** `0` pass/review · `1` blocked (with `--ci`) · `2` error
+
+---
+
+## What gets checked
+
+### Project checks
+- Typecheck, lint, tests, build (when detected / required)
+- Lint defaults to **new issues only** (changed lines)
+- Dependency changes + optional OSV advisories (package name/version only)
+
+### Security rules (high signal)
+Secrets, `eval`, shell/SQL risks, open redirects, path traversal, unsafe writes, CORS/TLS/header issues, sensitive logging, and **auth/authz removals vs base**.
+
+Full catalog: [RULES.md](./RULES.md)
+
+---
+
+## Framework support
+
+Works on **any Node/JS/TS git repo**. Dedicated detection for:
+
+**Backend:** Express · Fastify · Hono · NestJS · plain Node  
+**Apps:** React · Vite · Next.js · Remix · Astro · Nuxt · Vue · SvelteKit · Angular
+
+Other stacks still get checks + rules — just without framework-specific detection extras.
+
+**Package managers:** npm · pnpm · Yarn · Bun
+
+---
+
+## Configuration
+
+`agentproof.config.yaml` (also `.yml`, `.json`, `.ts`, or `package.json#agentproof`):
+
+```yaml
+extends: security   # strict | security | relaxed | ci | ./team-pack.yaml
+
+fail_on: high
+
+protected_areas:
+  - "src/auth/**"
+  - "src/payments/**"
+  - "prisma/migrations/**"
+
+require:
+  build: true
+  tests: true
+  typecheck: true
+  lint: false
+
+lint:
+  new_issues_only: true
+
+dependencies:
+  new_dependency: review
+  advisories: true
+
+security:
+  secret_detection: true
+  auth_regression: true
+```
+
+| Pack | Intent |
+|------|--------|
+| `ci` | Typical PR gate |
+| `security` | Secrets + auth regression |
+| `strict` | Require build/tests/typecheck/lint |
+| `relaxed` | Block only on critical findings |
+
+---
+
+## GitHub Action
+
+```yaml
+- uses: Zardron/agentproof@v0.3.1
+  with:
+    base: origin/main
+    fail-on: high
+```
+
+Or:
+
+```yaml
+- run: npm install -D agentproof-cli
+- run: npx agentproof --base origin/main --ci
+```
+
+---
+
+## Programmatic API
+
+```js
+import { runPipeline, getVersion } from 'agentproof-cli'
+
+const { report, exitCode } = await runPipeline({
+  cwd: process.cwd(),
+  base: 'main',
+  staged: false,
+  json: true,
+  sarif: false,
+  ci: true,
+  skipChecks: false,
+})
+
+console.log(getVersion(), report.mergeStatus)
+process.exitCode = exitCode
+```
+
+TypeScript types are included. No `@types` package needed.
+
+---
+
+## Privacy & trust
+
+- MIT open source
+- No telemetry by default
+- Never uploads source
+- OSV sends package name/version only
+- Runs on your machine / CI runner
+
+---
+
+## Requirements
+
+- Node.js **20+**
+- A **git** repository
+- Optional network for OSV advisories
+
+---
+
 ## Documentation
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — system design
-- [RULES.md](./RULES.md) — rule catalog
-- [SECURITY.md](./SECURITY.md) — security policy
-- [CONTRIBUTING.md](./CONTRIBUTING.md) — how to contribute
-- [CHANGELOG.md](./CHANGELOG.md) — release notes
-- [ROADMAP.md](./ROADMAP.md) — product roadmap
+| Doc | Contents |
+|-----|----------|
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Pipeline design |
+| [RULES.md](./RULES.md) | Rule catalog |
+| [SECURITY.md](./SECURITY.md) | Vulnerability reporting |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | How to contribute |
+| [CHANGELOG.md](./CHANGELOG.md) | Release notes |
+| [ROADMAP.md](./ROADMAP.md) | What’s next |
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md).
+PRs welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md). Please follow the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## License
 
-MIT
+[MIT](./LICENSE) © Zardron Pesquera

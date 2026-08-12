@@ -1,0 +1,39 @@
+name: Feature request
+description: Suggest an improvement, rule, or framework adapter
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Rules / security
+        - Framework detection
+        - Checks (typecheck/lint/test/build)
+        - Policy / config
+        - Reporters / CLI
+        - GitHub Action
+        - Docs
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What gap are you hitting today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should AgentProof do instead?
+    validations:
+      required: true
+  - type: textarea
+    id: extras
+    attributes:
+      label: Extra context
+      description: Examples, links, or related tools.

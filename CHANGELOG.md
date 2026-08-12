@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1
+
+### Changed
+
+- Public README polish (badges, clearer positioning, framework scope)
+- GitHub issue/PR templates and security policy wording for `agentproof-cli`
+
 ## 0.3.0
 
 ### Added
