@@ -1,8 +1,8 @@
 # Roadmap
 
-## Now (0.3.x)
+## Current
 
-Public npm package (`agentproof-cli`), policy packs, and diff-aware lint filtering — while keeping analysis local-first.
+Stable CLI + GitHub Action for Node/JS/TS diff verification, policy packs, and local-first reporting.
 
 ## Next
 
@@ -14,4 +14,4 @@ Public npm package (`agentproof-cli`), policy packs, and diff-aware lint filteri
 - Performance modes for very large repositories
 - Optional opt-in anonymous usage metrics (off by default)
 
-AgentProof will remain open source and privacy-first.
+See [BACKLOG.md](./BACKLOG.md) for the short open list.

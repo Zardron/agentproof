@@ -1,12 +1,12 @@
 {
   "name": "agentproof-cli",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "description": "Verify code changes before they reach production — CI-friendly checks, secrets, and security regression detection.",
   "type": "module",
   "license": "MIT",
   "author": "Zardron Pesquera <zardron.pesquera1993@gmail.com>",
   "bin": {
-    "agentproof": "./dist/cli/index.js"
+    "agentproof": "dist/cli/index.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

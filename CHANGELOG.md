@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.2
+
+### Changed
+
+- Public docs tone: engineering-focused README, removed scaffold-style task checklist
+- Replaced `TASKS.md` with a short `BACKLOG.md`
+
+## 0.3.1
+
+### Changed
+
+- Public README polish (badges, clearer positioning, framework scope)
+- GitHub issue/PR templates and security policy wording for `agentproof-cli`
+
 ## 0.3.0
 
 ### Added

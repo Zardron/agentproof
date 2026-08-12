@@ -42,7 +42,7 @@ describe('pipeline JSON', () => {
     })
     expect(report.project.runtime).toBe('node')
     expect(output).toContain('"tool": "agentproof"')
-    expect(output).toContain('"version": "0.3.0"')
+    expect(output).toContain('"version": "0.3.2"')
   })
 })
 
