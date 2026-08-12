@@ -49,6 +49,20 @@ export type Policy = z.infer<typeof policySchema>
 
 export const defaultPolicy: Policy = policySchema.parse({})
 
+/** Cosmiconfig search order for dedicated AgentProof config files (not package.json). */
+export const CONFIG_SEARCH_PLACES = [
+  'agentproof.config.yaml',
+  'agentproof.config.yml',
+  'agentproof.config.json',
+  'agentproof.config.ts',
+  'agentproof.config.js',
+  'agentproof.config.mjs',
+  '.agentproofrc',
+  '.agentproofrc.yaml',
+  '.agentproofrc.yml',
+  '.agentproofrc.json',
+] as const
+
 async function loadTsConfig(abs: string): Promise<unknown> {
   const { createJiti } = await import('jiti')
   const jiti = createJiti(import.meta.url)
@@ -85,19 +99,7 @@ export async function loadPolicy(
     raw = (await parseConfigFile(abs)) ?? {}
   } else {
     const explorer = cosmiconfig('agentproof', {
-      searchPlaces: [
-        'agentproof.config.yaml',
-        'agentproof.config.yml',
-        'agentproof.config.json',
-        'agentproof.config.ts',
-        'agentproof.config.js',
-        'agentproof.config.mjs',
-        '.agentproofrc',
-        '.agentproofrc.yaml',
-        '.agentproofrc.yml',
-        '.agentproofrc.json',
-        'package.json',
-      ],
+      searchPlaces: [...CONFIG_SEARCH_PLACES, 'package.json'],
       loaders: {
         '.yaml': (_filepath, content) => yaml.load(content),
         '.yml': (_filepath, content) => yaml.load(content),

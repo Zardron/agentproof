@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `agentproof init` inspects the repository and writes a starter `agentproof.config.ts` or `agentproof.config.yaml`
+- Existing configs are not overwritten unless `--force` is passed or the user confirms in an interactive terminal
+
 ## 0.4.1
 
 ### Added

@@ -3,6 +3,7 @@ import {
   describeProject,
   getVersion,
   loadPolicy,
+  runInit,
   runPipeline,
 } from '../../src/index.js'
 
@@ -12,6 +13,7 @@ describe('public API', () => {
     expect(typeof getVersion).toBe('function')
     expect(typeof loadPolicy).toBe('function')
     expect(typeof describeProject).toBe('function')
+    expect(typeof runInit).toBe('function')
     expect(getVersion()).toBe('0.4.1')
   })
 })

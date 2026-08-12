@@ -115,6 +115,7 @@ Then the full report is printed. In CI or non-TTY terminals, the same stages are
 
 | What you want to do | Command |
 |---------------------|---------|
+| Generate a starter config from detected tooling | `npx agentproof init` |
 | Compare current branch against main | `npx agentproof --base main` |
 | Check staged changes before committing | `npx agentproof --staged` |
 | Check uncommitted work vs `HEAD` (default) | `npx agentproof` |
@@ -276,6 +277,8 @@ npx agentproof --help
 
 | Flag / argument | Purpose | Example |
 |-----------------|---------|---------|
+| `init` | Inspect the repo and write a starter config | `npx agentproof init` |
+| `init --force` | Overwrite an existing AgentProof config | `npx agentproof init --force` |
 | `[revision]` | Compare that revision to `HEAD` (e.g. previous commit) | `npx agentproof HEAD~1` |
 | `--base <ref>` | Compare against a branch or commit (recommended for feature branches) | `npx agentproof --base main` |
 | `--staged` | Analyze staged changes only | `npx agentproof --staged` |
@@ -298,6 +301,45 @@ If both `--staged` and `--base` are passed, **`--staged` wins**. If both `--json
 ## Configuration
 
 Config is optional. Without a file, built-in defaults apply (typecheck required, `fail_on: high`, secret detection and auth regression enabled, advisories on).
+
+### Generate a starter config
+
+```bash
+npx agentproof init
+```
+
+`init` inspects the repository (runtime, language, framework, package manager, linter, tests, ORM) and writes the minimum useful config:
+
+- TypeScript projects get `agentproof.config.ts`
+- JavaScript-only projects get `agentproof.config.yaml`
+- The file extends the `ci` pack (`fail_on: high`, typecheck required when TypeScript is present)
+- `protected_areas` are added only for high-risk directories that actually exist (for example `src/auth/**`, `src/app/api/**`, `prisma/migrations/**`)
+
+Example:
+
+```text
+AgentProof Setup
+
+✓ Detected Node.js
+✓ Detected TypeScript
+✓ Detected Next.js
+✓ Detected npm
+✓ Detected ESLint
+✓ Detected Vitest
+✓ Detected Drizzle
+
+Created:
+
+agentproof.config.ts
+
+AgentProof is ready.
+
+Run:
+
+npx agentproof --base main
+```
+
+`init` never overwrites an existing AgentProof config unless you pass `--force`, or confirm in an interactive terminal. In CI / non-TTY environments it refuses and tells you to use `--force`. It does not rewrite `package.json`; if config currently lives there, `--force` writes a dedicated config file instead.
 
 ### Minimal example
 
@@ -520,7 +562,7 @@ console.log(getVersion(), report.mergeStatus)
 process.exitCode = exitCode
 ```
 
-`runPipeline` returns `{ report, exitCode, output }`. Optional fields include `revision`, `configPath`, `verbose`, and `onProgress` (progress events; no terminal output unless you handle them). TypeScript declarations are included. Prefer the `agentproof` CLI for most workflows.
+`runPipeline` returns `{ report, exitCode, output }`. Optional fields include `revision`, `configPath`, `verbose`, and `onProgress` (progress events; no terminal output unless you handle them). `runInit` is also exported for generating a starter config programmatically. TypeScript declarations are included. Prefer the `agentproof` CLI for most workflows.
 
 ---
 
